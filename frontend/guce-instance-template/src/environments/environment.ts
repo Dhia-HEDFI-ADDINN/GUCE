@@ -105,16 +105,25 @@ export const environment = {
     allowedOrigins: ['http://localhost:4200', 'http://localhost:8081']
   },
 
-  // Hub Communication (for telemetry and monitoring)
+  // Hub Communication (for telemetry, monitoring, and synchronization)
+  hubUrl: 'http://localhost:8080',        // Hub Gateway URL
+  tenantCode: '{{INSTANCE_CODE}}',        // This instance's tenant code
+  hubApiKey: '{{HUB_API_KEY}}',           // API key for Hub authentication
+
   hub: {
-    url: 'https://e-guce-hub.com',
+    url: 'http://localhost:8080',
     enabled: true,
     apiKey: '{{HUB_API_KEY}}',
     telemetryInterval: 60000,  // Send telemetry every minute
+    syncInterval: 300000,      // Sync referentials every 5 minutes
+    heartbeatInterval: 30000,  // Heartbeat every 30 seconds
     endpoints: {
-      telemetry: '/api/v1/telemetry',
-      health: '/api/v1/health/report',
-      alerts: '/api/v1/alerts'
+      telemetry: '/api/v1/instances/{{INSTANCE_CODE}}/metrics',
+      health: '/api/v1/instances/{{INSTANCE_CODE}}/status',
+      alerts: '/api/v1/instances/{{INSTANCE_CODE}}/alerts',
+      config: '/api/v1/instances/{{INSTANCE_CODE}}/config',
+      templates: '/api/v1/templates/procedures',
+      referentials: '/api/v1/referentials/sync'
     }
   },
 
