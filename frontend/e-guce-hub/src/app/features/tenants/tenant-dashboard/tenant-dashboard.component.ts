@@ -1,16 +1,20 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
+import { Subject, interval } from 'rxjs';
+import { takeUntil, switchMap } from 'rxjs/operators';
 import { TenantService } from '@core/services/tenant.service';
-import { Tenant, TenantStatus } from '@core/models/tenant.model';
+import { Tenant, TenantStatus, HubStats } from '@core/models/tenant.model';
 
 @Component({
   selector: 'hub-tenant-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatButtonModule, MatMenuModule],
+  imports: [CommonModule, RouterModule, FormsModule, MatIconModule, MatButtonModule, MatMenuModule, MatDividerModule],
   template: `
     <div class="tenant-dashboard">
       <div class="page-header">
@@ -30,22 +34,22 @@ import { Tenant, TenantStatus } from '@core/models/tenant.model';
       <div class="grid-container cols-4">
         <div class="stat-card">
           <div class="stat-icon blue"><mat-icon>apartment</mat-icon></div>
-          <div class="stat-value">{{ tenants.length }}</div>
+          <div class="stat-value">{{ hubStats?.totalTenants || tenants.length }}</div>
           <div class="stat-label">Total Instances</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon green"><mat-icon>play_circle</mat-icon></div>
-          <div class="stat-value">{{ getCountByStatus(TenantStatus.RUNNING) }}</div>
+          <div class="stat-value">{{ hubStats?.runningTenants || getCountByStatus(TenantStatus.RUNNING) }}</div>
           <div class="stat-label">En Cours</div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon orange"><mat-icon>build</mat-icon></div>
-          <div class="stat-value">{{ getCountByStatus(TenantStatus.MAINTENANCE) }}</div>
-          <div class="stat-label">En Maintenance</div>
+          <div class="stat-icon orange"><mat-icon>people</mat-icon></div>
+          <div class="stat-value">{{ hubStats?.totalActiveUsers || 0 }}</div>
+          <div class="stat-label">Utilisateurs Actifs</div>
         </div>
         <div class="stat-card">
           <div class="stat-icon red"><mat-icon>error</mat-icon></div>
-          <div class="stat-value">{{ getCountByStatus(TenantStatus.ERROR) }}</div>
+          <div class="stat-value">{{ hubStats?.errorTenants || getCountByStatus(TenantStatus.ERROR) }}</div>
           <div class="stat-label">En Erreur</div>
         </div>
       </div>
@@ -398,22 +402,62 @@ import { Tenant, TenantStatus } from '@core/models/tenant.model';
     }
   `]
 })
-export class TenantDashboardComponent implements OnInit {
+export class TenantDashboardComponent implements OnInit, OnDestroy {
   private tenantService = inject(TenantService);
+  private destroy$ = new Subject<void>();
 
   TenantStatus = TenantStatus;
   tenants: Tenant[] = [];
   filteredTenants: Tenant[] = [];
+  hubStats: HubStats | null = null;
   searchTerm = '';
   statusFilter = 'all';
+  loading = true;
 
   ngOnInit(): void {
     this.loadTenants();
+    this.loadHubStats();
+
+    // Refresh every 30 seconds
+    interval(30000).pipe(
+      takeUntil(this.destroy$),
+      switchMap(() => this.tenantService.getAll())
+    ).subscribe(tenants => {
+      this.tenants = tenants;
+      this.filterTenants();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   loadTenants(): void {
-    // Mock data - replace with actual API call
-    this.tenants = [
+    this.loading = true;
+    this.tenantService.getAll().subscribe({
+      next: (tenants) => {
+        this.tenants = tenants;
+        this.filteredTenants = [...tenants];
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        // Use mock data if API fails
+        this.tenants = this.getMockTenants();
+        this.filteredTenants = [...this.tenants];
+      }
+    });
+  }
+
+  loadHubStats(): void {
+    this.tenantService.getHubStats().subscribe({
+      next: (stats) => this.hubStats = stats
+    });
+  }
+
+  private getMockTenants(): Tenant[] {
+    return [
       {
         id: '1', code: 'CM', name: 'GUCE Cameroun', shortName: 'GUCE-CM',
         domain: 'guce-cameroun.com', country: 'Cameroun',
@@ -453,7 +497,7 @@ export class TenantDashboardComponent implements OnInit {
         domain: 'guce-rca.com', country: 'Centrafrique',
         primaryColor: '#003082', secondaryColor: '#289728',
         timezone: 'Africa/Bangui', locale: 'fr-CF', currency: 'XAF',
-        status: TenantStatus.MAINTENANCE,
+        status: TenantStatus.PENDING,
         createdAt: new Date(), updatedAt: new Date(),
         modules: [
           { name: 'e-Force', enabled: true, features: [] },
@@ -463,7 +507,6 @@ export class TenantDashboardComponent implements OnInit {
         infrastructure: {} as any
       }
     ];
-    this.filteredTenants = [...this.tenants];
   }
 
   filterTenants(): void {

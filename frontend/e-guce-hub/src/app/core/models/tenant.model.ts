@@ -151,3 +151,35 @@ export interface TenantMetrics {
   activeUsers: number;
   responseTime: number;
 }
+
+// Deployment Status for tracking provisioning
+export interface DeploymentStatus {
+  tenantId: string;
+  status: 'PENDING' | 'PROVISIONING' | 'DEPLOYING' | 'COMPLETED' | 'FAILED';
+  progress: number;
+  currentStep: string;
+  steps: DeploymentStep[];
+  startedAt: Date;
+  completedAt?: Date;
+  error?: string;
+}
+
+export interface DeploymentStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  error?: string;
+}
+
+// Hub Statistics
+export interface HubStats {
+  totalTenants: number;
+  runningTenants: number;
+  stoppedTenants: number;
+  errorTenants: number;
+  healthyTenants: number;
+  degradedTenants: number;
+  totalActiveUsers: number;
+  totalTransactions: number;
+  lastUpdated: Date;
+}
