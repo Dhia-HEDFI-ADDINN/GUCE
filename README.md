@@ -103,9 +103,44 @@ Cette plateforme est composee de **DEUX systemes distincts mais interconnectes**
 
 ## E-GUCE 3G GENERATOR HUB (Multi-Tenant)
 
+### Interface Unique du Hub
+
+**IMPORTANT**: Le Hub dispose d'une **INTERFACE UNIQUE** accessible via une seule URL.
+
+```
++-----------------------------------------------------------------------------------+
+|                    E-GUCE 3G GENERATOR HUB - INTERFACE UNIQUE                     |
+|                          https://e-guce-hub.com                                   |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  +---------------------------+  Une seule application frontend Angular           |
+|  |     APPLICATION WEB      |  qui integre TOUS les modules :                    |
+|  |       UNIFIEE            |                                                    |
+|  |                          |  - /tenants/*     -> Tenant Builder                |
+|  |  Client Keycloak:        |  - /generator/*   -> Generator Engine              |
+|  |  "e-guce-hub"            |  - /monitoring/*  -> Monitoring 360                |
+|  |                          |  - /admin/*       -> Administration Centrale       |
+|  +---------------------------+  - /templates/*   -> Templates Library             |
+|              |                                                                    |
+|              v                                                                    |
+|  +---------------------------+                                                    |
+|  |     APIs BACKEND         |  Client Keycloak: "hub-api"                        |
+|  |     /api/v1/*            |  Bearer Token authentication                       |
+|  +---------------------------+                                                    |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
+```
+
+**Caracteristiques de l'interface unique:**
+- **Une seule URL** : https://e-guce-hub.com
+- **Un seul client Keycloak** : `e-guce-hub` pour le frontend
+- **Navigation interne** : Tous les modules accessibles via le menu lateral
+- **Authentification unique** : Une seule connexion pour acceder a tous les modules
+- **Autorisation par roles** : Les menus sont filtres selon les roles de l'utilisateur
+
 ### URL de base : https://e-guce-hub.com
 
-### Modules du Hub
+### Modules du Hub (accessibles via l'interface unique)
 
 #### MODULE 1 : TENANT BUILDER (Creation d'instances GUCE)
 
