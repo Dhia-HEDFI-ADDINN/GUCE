@@ -6,6 +6,20 @@ import { MatCardModule } from '@angular/material/card';
 import { MonitoringService, DashboardStats } from '@core/services/monitoring.service';
 import { TenantService } from '@core/services/tenant.service';
 import { Tenant, TenantStatus } from '@core/models/tenant.model';
+import { AuthService } from '@core/services/auth.service';
+import { environment } from '@env/environment';
+
+interface IntegratedTool {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  status: 'online' | 'offline' | 'unknown';
+  url: string;
+  internalPath: string;
+  category: string;
+}
 
 @Component({
   selector: 'hub-dashboard',
@@ -50,6 +64,49 @@ import { Tenant, TenantStatus } from '@core/models/tenant.model';
           </div>
           <div class="stat-value">{{ stats.activeAlerts }}</div>
           <div class="stat-label">Alertes Actives</div>
+        </div>
+      </div>
+
+      <!-- Integrated Tools Section (visible for admins) -->
+      <div class="dashboard-card tools-section" *ngIf="showToolsSection">
+        <div class="card-header">
+          <h2>
+            <mat-icon>widgets</mat-icon>
+            Outils Intégrés - Interface Unique
+          </h2>
+          <a routerLink="/tools" class="view-all">Centre de contrôle</a>
+        </div>
+        <div class="tools-grid">
+          <div class="tool-card" *ngFor="let tool of integratedTools"
+               [class.online]="tool.status === 'online'"
+               [class.offline]="tool.status === 'offline'"
+               (click)="openTool(tool)">
+            <div class="tool-icon" [style.background]="tool.color">
+              <mat-icon>{{ tool.icon }}</mat-icon>
+            </div>
+            <div class="tool-info">
+              <span class="tool-name">{{ tool.name }}</span>
+              <span class="tool-desc">{{ tool.description }}</span>
+            </div>
+            <div class="tool-status">
+              <span class="status-indicator" [class]="tool.status"></span>
+              <span class="status-text">{{ tool.status === 'online' ? 'En ligne' : tool.status === 'offline' ? 'Hors ligne' : 'Inconnu' }}</span>
+            </div>
+            <mat-icon class="tool-arrow">arrow_forward</mat-icon>
+          </div>
+        </div>
+        <div class="tools-categories">
+          <div class="category-group" *ngFor="let category of toolCategories">
+            <h4>{{ category.name }}</h4>
+            <div class="category-tools">
+              <a *ngFor="let tool of getToolsByCategory(category.id)"
+                 [routerLink]="tool.internalPath"
+                 class="category-tool-link">
+                <mat-icon>{{ tool.icon }}</mat-icon>
+                {{ tool.name }}
+              </a>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -181,6 +238,170 @@ import { Tenant, TenantStatus } from '@core/models/tenant.model';
 
       &:hover {
         text-decoration: underline;
+      }
+    }
+
+    /* Integrated Tools Section */
+    .tools-section {
+      margin-bottom: 24px;
+
+      .card-header {
+        h2 {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          mat-icon {
+            color: #1a237e;
+          }
+        }
+      }
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .tool-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 2px solid transparent;
+
+      &:hover {
+        background: #e8eaf6;
+        border-color: #1a237e;
+        transform: translateX(4px);
+      }
+
+      &.online {
+        border-left: 4px solid #4caf50;
+      }
+
+      &.offline {
+        border-left: 4px solid #f44336;
+        opacity: 0.7;
+      }
+
+      .tool-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        flex-shrink: 0;
+
+        mat-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+        }
+      }
+
+      .tool-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+
+        .tool-name {
+          font-weight: 600;
+          color: #333;
+          font-size: 15px;
+        }
+
+        .tool-desc {
+          font-size: 12px;
+          color: #666;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+
+      .tool-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        color: #666;
+
+        .status-indicator {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+
+          &.online { background: #4caf50; }
+          &.offline { background: #f44336; }
+          &.unknown { background: #ff9800; }
+        }
+      }
+
+      .tool-arrow {
+        color: #1a237e;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+
+      &:hover .tool-arrow {
+        opacity: 1;
+      }
+    }
+
+    .tools-categories {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 24px;
+      padding-top: 16px;
+      border-top: 1px solid #e0e0e0;
+
+      .category-group {
+        h4 {
+          font-size: 12px;
+          text-transform: uppercase;
+          color: #666;
+          margin: 0 0 12px;
+          letter-spacing: 0.5px;
+        }
+
+        .category-tools {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .category-tool-link {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          color: #333;
+          text-decoration: none;
+          border-radius: 6px;
+          font-size: 13px;
+          transition: all 0.2s;
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #1a237e;
+          }
+
+          &:hover {
+            background: #e3f2fd;
+          }
+        }
       }
     }
 
@@ -388,6 +609,7 @@ import { Tenant, TenantStatus } from '@core/models/tenant.model';
 export class DashboardComponent implements OnInit {
   private monitoringService = inject(MonitoringService);
   private tenantService = inject(TenantService);
+  private authService = inject(AuthService);
 
   stats: DashboardStats = {
     totalTenants: 0,
@@ -401,6 +623,127 @@ export class DashboardComponent implements OnInit {
   };
 
   tenants: Tenant[] = [];
+  showToolsSection = false;
+
+  integratedTools: IntegratedTool[] = [
+    {
+      id: 'grafana',
+      name: 'Grafana',
+      description: 'Dashboards & Monitoring',
+      icon: 'dashboard',
+      color: '#F46800',
+      status: 'online',
+      url: 'http://localhost:3000',
+      internalPath: '/tools/grafana',
+      category: 'monitoring'
+    },
+    {
+      id: 'kibana',
+      name: 'Kibana',
+      description: 'Logs & Analytics',
+      icon: 'search',
+      color: '#005571',
+      status: 'online',
+      url: 'http://localhost:5601',
+      internalPath: '/tools/kibana',
+      category: 'monitoring'
+    },
+    {
+      id: 'keycloak',
+      name: 'Keycloak Admin',
+      description: 'Identity & Access',
+      icon: 'admin_panel_settings',
+      color: '#4D4D4D',
+      status: 'online',
+      url: 'http://localhost:8180/admin',
+      internalPath: '/tools/keycloak-admin',
+      category: 'security'
+    },
+    {
+      id: 'camunda',
+      name: 'Camunda',
+      description: 'Workflow Engine',
+      icon: 'account_tree',
+      color: '#FC5D0D',
+      status: 'online',
+      url: 'http://localhost:8081',
+      internalPath: '/tools/camunda',
+      category: 'workflow'
+    },
+    {
+      id: 'drools',
+      name: 'Drools',
+      description: 'Business Rules',
+      icon: 'rule',
+      color: '#1A9FD4',
+      status: 'online',
+      url: 'http://localhost:8084',
+      internalPath: '/tools/drools',
+      category: 'rules'
+    },
+    {
+      id: 'prometheus',
+      name: 'Prometheus',
+      description: 'Metrics & Alerting',
+      icon: 'analytics',
+      color: '#E6522C',
+      status: 'online',
+      url: 'http://localhost:9090',
+      internalPath: '/tools/prometheus',
+      category: 'monitoring'
+    },
+    {
+      id: 'kafka',
+      name: 'Kafka UI',
+      description: 'Message Broker',
+      icon: 'message',
+      color: '#231F20',
+      status: 'online',
+      url: 'http://localhost:8090',
+      internalPath: '/tools/kafka',
+      category: 'messaging'
+    },
+    {
+      id: 'minio',
+      name: 'MinIO',
+      description: 'Object Storage (GED)',
+      icon: 'cloud_upload',
+      color: '#C72C48',
+      status: 'online',
+      url: 'http://localhost:9001',
+      internalPath: '/tools/minio',
+      category: 'storage'
+    },
+    {
+      id: 'swagger',
+      name: 'API Documentation',
+      description: 'OpenAPI / Swagger',
+      icon: 'api',
+      color: '#85EA2D',
+      status: 'online',
+      url: 'http://localhost:8080/swagger-ui.html',
+      internalPath: '/tools/api-docs',
+      category: 'developer'
+    },
+    {
+      id: 'jaeger',
+      name: 'Jaeger',
+      description: 'Distributed Tracing',
+      icon: 'timeline',
+      color: '#60D0E4',
+      status: 'online',
+      url: 'http://localhost:16686',
+      internalPath: '/tools/jaeger',
+      category: 'monitoring'
+    }
+  ];
+
+  toolCategories = [
+    { id: 'monitoring', name: 'Monitoring & Logs' },
+    { id: 'security', name: 'Sécurité' },
+    { id: 'workflow', name: 'Workflow & Règles' },
+    { id: 'developer', name: 'Développeur' }
+  ];
 
   recentActivities = [
     { type: 'success', icon: 'check_circle', message: 'GUCE Cameroun deploye avec succes', time: 'Il y a 5 min' },
@@ -412,6 +755,8 @@ export class DashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDashboardData();
+    this.checkToolsAccess();
+    this.checkToolsHealth();
   }
 
   loadDashboardData(): void {
@@ -483,6 +828,39 @@ export class DashboardComponent implements OnInit {
         infrastructure: {} as any
       }
     ];
+  }
+
+  checkToolsAccess(): void {
+    // Show tools section for superadmin and hub-admin roles
+    this.showToolsSection = this.authService.hasAnyRole([
+      'SUPER_ADMIN',
+      'hub-admin',
+      'monitoring-viewer',
+      'workflow-admin',
+      'rules-admin',
+      'developer'
+    ]);
+  }
+
+  checkToolsHealth(): void {
+    // Check health of each tool (simplified version)
+    // In production, this would call the actual health endpoints
+    this.integratedTools.forEach(tool => {
+      // Simulate health check - in production use HTTP calls
+      tool.status = 'online'; // Default to online for demo
+    });
+  }
+
+  getToolsByCategory(categoryId: string): IntegratedTool[] {
+    if (categoryId === 'workflow') {
+      return this.integratedTools.filter(t => t.category === 'workflow' || t.category === 'rules');
+    }
+    return this.integratedTools.filter(t => t.category === categoryId);
+  }
+
+  openTool(tool: IntegratedTool): void {
+    // Open tool in new tab (external URL) or navigate internally
+    window.open(tool.url, '_blank');
   }
 
   getStatusLabel(status: TenantStatus): string {
