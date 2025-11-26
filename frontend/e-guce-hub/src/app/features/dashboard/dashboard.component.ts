@@ -1,13 +1,15 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
-import { MatCardModule } from '@angular/material/card';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatRippleModule } from '@angular/material/core';
 import { MonitoringService, DashboardStats } from '@core/services/monitoring.service';
 import { TenantService } from '@core/services/tenant.service';
 import { Tenant, TenantStatus } from '@core/models/tenant.model';
 import { AuthService } from '@core/services/auth.service';
-import { environment } from '@env/environment';
+import { Subject, interval } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 
 interface IntegratedTool {
   id: string;
@@ -15,601 +17,1210 @@ interface IntegratedTool {
   description: string;
   icon: string;
   color: string;
+  gradient: string;
   status: 'online' | 'offline' | 'unknown';
   url: string;
   internalPath: string;
   category: string;
 }
 
+interface Activity {
+  type: 'success' | 'warning' | 'info' | 'error';
+  icon: string;
+  message: string;
+  time: string;
+  tenant?: string;
+}
+
 @Component({
   selector: 'hub-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatCardModule],
+  imports: [CommonModule, RouterModule, MatIconModule, MatTooltipModule, MatRippleModule],
   template: `
     <div class="dashboard">
-      <div class="page-header">
-        <h1>Dashboard E-GUCE 3G Hub</h1>
-        <p class="page-description">Vue d'ensemble de toutes les instances GUCE deployees</p>
-      </div>
-
-      <!-- Stats Cards -->
-      <div class="grid-container cols-4">
-        <div class="stat-card">
-          <div class="stat-icon blue">
+      <!-- Welcome Section -->
+      <div class="welcome-section">
+        <div class="welcome-content">
+          <div class="welcome-text">
+            <span class="greeting">{{ greeting }}, {{ userName }}</span>
+            <h1>Dashboard E-GUCE 3G</h1>
+            <p>Vue d'ensemble de toutes les instances GUCE deployees et des metriques en temps reel</p>
+          </div>
+          <div class="welcome-actions">
+            <a routerLink="/tenants/create" class="btn-primary" matRipple>
+              <mat-icon>add</mat-icon>
+              Nouvelle Instance
+            </a>
+            <a routerLink="/monitoring/dashboard" class="btn-secondary" matRipple>
+              <mat-icon>monitoring</mat-icon>
+              Monitoring 360
+            </a>
+          </div>
+        </div>
+        <div class="welcome-illustration">
+          <div class="floating-card card-1">
             <mat-icon>apartment</mat-icon>
+            <span>{{ stats.totalTenants }} Instances</span>
           </div>
-          <div class="stat-value">{{ stats.totalTenants }}</div>
-          <div class="stat-label">Total Instances</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon green">
+          <div class="floating-card card-2">
             <mat-icon>check_circle</mat-icon>
+            <span>{{ stats.healthyTenants }} En ligne</span>
           </div>
-          <div class="stat-value">{{ stats.healthyTenants }}</div>
-          <div class="stat-label">Instances Saines</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon orange">
-            <mat-icon>warning</mat-icon>
+          <div class="floating-card card-3">
+            <mat-icon>people</mat-icon>
+            <span>{{ stats.totalActiveUsers | number }} Utilisateurs</span>
           </div>
-          <div class="stat-value">{{ stats.degradedTenants }}</div>
-          <div class="stat-label">Instances Degradees</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-icon red">
-            <mat-icon>error</mat-icon>
-          </div>
-          <div class="stat-value">{{ stats.activeAlerts }}</div>
-          <div class="stat-label">Alertes Actives</div>
         </div>
       </div>
 
-      <!-- Integrated Tools Section (visible for admins) -->
-      <div class="dashboard-card tools-section" *ngIf="showToolsSection">
-        <div class="card-header">
-          <h2>
-            <mat-icon>widgets</mat-icon>
-            Outils Intégrés - Interface Unique
-          </h2>
-          <a routerLink="/tools" class="view-all">Centre de contrôle</a>
-        </div>
-        <div class="tools-grid">
-          <div class="tool-card" *ngFor="let tool of integratedTools"
-               [class.online]="tool.status === 'online'"
-               [class.offline]="tool.status === 'offline'"
-               (click)="openTool(tool)">
-            <div class="tool-icon" [style.background]="tool.color">
-              <mat-icon>{{ tool.icon }}</mat-icon>
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card" *ngFor="let stat of statCards" [class]="'stat-' + stat.type">
+          <div class="stat-icon-wrapper">
+            <div class="stat-icon" [class]="stat.type">
+              <mat-icon>{{ stat.icon }}</mat-icon>
             </div>
-            <div class="tool-info">
-              <span class="tool-name">{{ tool.name }}</span>
-              <span class="tool-desc">{{ tool.description }}</span>
+            <div class="stat-trend" *ngIf="stat.trend" [class]="stat.trend > 0 ? 'positive' : 'negative'">
+              <mat-icon>{{ stat.trend > 0 ? 'trending_up' : 'trending_down' }}</mat-icon>
+              {{ stat.trend > 0 ? '+' : '' }}{{ stat.trend }}%
             </div>
-            <div class="tool-status">
-              <span class="status-indicator" [class]="tool.status"></span>
-              <span class="status-text">{{ tool.status === 'online' ? 'En ligne' : tool.status === 'offline' ? 'Hors ligne' : 'Inconnu' }}</span>
-            </div>
-            <mat-icon class="tool-arrow">arrow_forward</mat-icon>
+          </div>
+          <div class="stat-content">
+            <span class="stat-value">{{ stat.value | number }}</span>
+            <span class="stat-label">{{ stat.label }}</span>
+          </div>
+          <div class="stat-sparkline" *ngIf="stat.sparkline">
+            <svg viewBox="0 0 100 30" preserveAspectRatio="none">
+              <polyline [attr.points]="stat.sparkline" fill="none" stroke-width="2" stroke-linecap="round"/>
+            </svg>
           </div>
         </div>
-        <div class="tools-categories">
-          <div class="category-group" *ngFor="let category of toolCategories">
-            <h4>{{ category.name }}</h4>
-            <div class="category-tools">
-              <a *ngFor="let tool of getToolsByCategory(category.id)"
-                 [routerLink]="tool.internalPath"
-                 class="category-tool-link">
-                <mat-icon>{{ tool.icon }}</mat-icon>
-                {{ tool.name }}
+      </div>
+
+      <!-- Main Content Grid -->
+      <div class="main-grid">
+        <!-- Left Column -->
+        <div class="left-column">
+          <!-- Tenants Section -->
+          <div class="card tenants-card">
+            <div class="card-header">
+              <div class="header-title">
+                <mat-icon>apartment</mat-icon>
+                <h2>Instances GUCE</h2>
+              </div>
+              <a routerLink="/tenants/dashboard" class="header-action">
+                Voir tout
+                <mat-icon>arrow_forward</mat-icon>
+              </a>
+            </div>
+            <div class="tenant-list">
+              <div class="tenant-item" *ngFor="let tenant of tenants; let i = index"
+                   [style.animation-delay]="i * 0.1 + 's'"
+                   (click)="navigateToTenant(tenant)"
+                   matRipple>
+                <div class="tenant-avatar" [style.background]="tenant.primaryColor">
+                  <span>{{ tenant.code }}</span>
+                </div>
+                <div class="tenant-info">
+                  <span class="tenant-name">{{ tenant.name }}</span>
+                  <span class="tenant-domain">{{ tenant.domain }}</span>
+                </div>
+                <div class="tenant-metrics">
+                  <div class="metric">
+                    <mat-icon>people</mat-icon>
+                    <span>{{ getRandomMetric(100, 500) }}</span>
+                  </div>
+                  <div class="metric">
+                    <mat-icon>sync</mat-icon>
+                    <span>{{ getRandomMetric(50, 200) }}/h</span>
+                  </div>
+                </div>
+                <div class="tenant-status" [class]="'status-' + tenant.status.toLowerCase()">
+                  <span class="status-dot"></span>
+                  <span class="status-text">{{ getStatusLabel(tenant.status) }}</span>
+                </div>
+                <mat-icon class="tenant-arrow">chevron_right</mat-icon>
+              </div>
+              <div class="empty-state" *ngIf="tenants.length === 0">
+                <div class="empty-icon">
+                  <mat-icon>apartment</mat-icon>
+                </div>
+                <h3>Aucune instance deployee</h3>
+                <p>Creez votre premiere instance GUCE pour commencer</p>
+                <a routerLink="/tenants/create" class="btn-primary" matRipple>
+                  <mat-icon>add</mat-icon>
+                  Creer une instance
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Integrated Tools Section -->
+          <div class="card tools-card" *ngIf="showToolsSection">
+            <div class="card-header">
+              <div class="header-title">
+                <mat-icon>widgets</mat-icon>
+                <h2>Outils Integres</h2>
+              </div>
+              <a routerLink="/tools" class="header-action">
+                Centre de controle
+                <mat-icon>arrow_forward</mat-icon>
+              </a>
+            </div>
+            <div class="tools-grid">
+              <div class="tool-item" *ngFor="let tool of integratedTools.slice(0, 6)"
+                   [class.online]="tool.status === 'online'"
+                   (click)="openTool(tool)"
+                   matRipple>
+                <div class="tool-icon" [style.background]="tool.gradient">
+                  <mat-icon>{{ tool.icon }}</mat-icon>
+                </div>
+                <div class="tool-info">
+                  <span class="tool-name">{{ tool.name }}</span>
+                  <span class="tool-desc">{{ tool.description }}</span>
+                </div>
+                <div class="tool-status">
+                  <span class="status-indicator" [class]="tool.status"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="right-column">
+          <!-- Activity Feed -->
+          <div class="card activity-card">
+            <div class="card-header">
+              <div class="header-title">
+                <mat-icon>history</mat-icon>
+                <h2>Activite Recente</h2>
+              </div>
+              <div class="live-indicator">
+                <span class="live-dot"></span>
+                En direct
+              </div>
+            </div>
+            <div class="activity-list">
+              <div class="activity-item" *ngFor="let activity of recentActivities; let i = index"
+                   [style.animation-delay]="i * 0.08 + 's'">
+                <div class="activity-icon" [class]="activity.type">
+                  <mat-icon>{{ activity.icon }}</mat-icon>
+                </div>
+                <div class="activity-content">
+                  <p class="activity-message">{{ activity.message }}</p>
+                  <div class="activity-meta">
+                    <span class="activity-tenant" *ngIf="activity.tenant">{{ activity.tenant }}</span>
+                    <span class="activity-time">{{ activity.time }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Metrics Cards -->
+          <div class="metrics-row">
+            <div class="card metric-card">
+              <div class="metric-header">
+                <mat-icon>receipt_long</mat-icon>
+                <span>Transactions</span>
+              </div>
+              <div class="metric-value">
+                <span class="value">{{ stats.totalTransactionsToday | number }}</span>
+                <span class="trend positive">
+                  <mat-icon>trending_up</mat-icon>
+                  +12%
+                </span>
+              </div>
+              <div class="metric-chart">
+                <div class="chart-bar" *ngFor="let h of chartHours" [style.height.%]="h"></div>
+              </div>
+            </div>
+
+            <div class="card metric-card">
+              <div class="metric-header">
+                <mat-icon>speed</mat-icon>
+                <span>Temps de reponse</span>
+              </div>
+              <div class="metric-value">
+                <span class="value">{{ stats.averageResponseTime }}ms</span>
+                <span class="trend negative">
+                  <mat-icon>trending_down</mat-icon>
+                  -8%
+                </span>
+              </div>
+              <div class="metric-progress">
+                <div class="progress-bar" [style.width.%]="Math.min(stats.averageResponseTime / 5, 100)"></div>
+              </div>
+              <span class="metric-note">Objectif: < 500ms</span>
+            </div>
+          </div>
+
+          <!-- Quick Actions -->
+          <div class="card quick-actions-card">
+            <div class="card-header">
+              <div class="header-title">
+                <mat-icon>bolt</mat-icon>
+                <h2>Actions Rapides</h2>
+              </div>
+            </div>
+            <div class="actions-grid">
+              <a *ngFor="let action of quickActions"
+                 [routerLink]="action.route"
+                 class="action-item"
+                 matRipple>
+                <div class="action-icon" [style.background]="action.gradient">
+                  <mat-icon>{{ action.icon }}</mat-icon>
+                </div>
+                <span class="action-label">{{ action.label }}</span>
               </a>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Main Content -->
-      <div class="grid-container cols-2">
-        <!-- Tenants Overview -->
-        <div class="dashboard-card">
-          <div class="card-header">
-            <h2>Instances GUCE</h2>
-            <a routerLink="/tenants/dashboard" class="view-all">Voir tout</a>
-          </div>
-          <div class="tenant-list">
-            <div class="tenant-item" *ngFor="let tenant of tenants">
-              <div class="tenant-info">
-                <div class="tenant-avatar" [style.background]="tenant.primaryColor">
-                  {{ tenant.code }}
-                </div>
-                <div class="tenant-details">
-                  <span class="tenant-name">{{ tenant.name }}</span>
-                  <span class="tenant-domain">{{ tenant.domain }}</span>
-                </div>
-              </div>
-              <span class="status-badge" [class]="'status-' + tenant.status.toLowerCase()">
-                {{ getStatusLabel(tenant.status) }}
-              </span>
-            </div>
-            <div class="empty-state" *ngIf="tenants.length === 0">
-              <mat-icon>apartment</mat-icon>
-              <p>Aucune instance deployee</p>
-              <a routerLink="/tenants/create" class="btn-primary">Creer une instance</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Activity Feed -->
-        <div class="dashboard-card">
-          <div class="card-header">
-            <h2>Activite Recente</h2>
-          </div>
-          <div class="activity-feed">
-            <div class="activity-item" *ngFor="let activity of recentActivities">
-              <div class="activity-icon" [class]="activity.type">
-                <mat-icon>{{ activity.icon }}</mat-icon>
-              </div>
-              <div class="activity-content">
-                <p class="activity-text">{{ activity.message }}</p>
-                <span class="activity-time">{{ activity.time }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Metrics Overview -->
-      <div class="grid-container cols-3">
-        <div class="dashboard-card">
-          <div class="card-header">
-            <h2>Transactions Aujourd'hui</h2>
-          </div>
-          <div class="metric-value">
-            <span class="big-number">{{ stats.totalTransactionsToday | number }}</span>
-            <span class="metric-trend positive">
-              <mat-icon>trending_up</mat-icon> +12%
-            </span>
-          </div>
-        </div>
-
-        <div class="dashboard-card">
-          <div class="card-header">
-            <h2>Utilisateurs Actifs</h2>
-          </div>
-          <div class="metric-value">
-            <span class="big-number">{{ stats.totalActiveUsers | number }}</span>
-            <span class="metric-trend positive">
-              <mat-icon>trending_up</mat-icon> +5%
-            </span>
-          </div>
-        </div>
-
-        <div class="dashboard-card">
-          <div class="card-header">
-            <h2>Temps de Reponse Moyen</h2>
-          </div>
-          <div class="metric-value">
-            <span class="big-number">{{ stats.averageResponseTime }}ms</span>
-            <span class="metric-trend negative">
-              <mat-icon>trending_down</mat-icon> -8%
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="dashboard-card">
-        <div class="card-header">
-          <h2>Actions Rapides</h2>
-        </div>
-        <div class="quick-actions">
-          <a routerLink="/tenants/create" class="action-card">
-            <mat-icon>add_circle</mat-icon>
-            <span>Nouvelle Instance</span>
-          </a>
-          <a routerLink="/generator/procedures" class="action-card">
-            <mat-icon>code</mat-icon>
-            <span>Generer Procedure</span>
-          </a>
-          <a routerLink="/monitoring/dashboard" class="action-card">
-            <mat-icon>monitoring</mat-icon>
-            <span>Monitoring 360</span>
-          </a>
-          <a routerLink="/templates/procedures/import" class="action-card">
-            <mat-icon>library_books</mat-icon>
-            <span>Bibliotheque Templates</span>
-          </a>
-        </div>
-      </div>
     </div>
   `,
   styles: [`
-    .dashboard {
-      max-width: 1400px;
-      margin: 0 auto;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+    :host {
+      --color-primary: #6366f1;
+      --color-primary-light: rgba(99, 102, 241, 0.1);
+      --color-success: #10b981;
+      --color-success-light: rgba(16, 185, 129, 0.1);
+      --color-warning: #f59e0b;
+      --color-warning-light: rgba(245, 158, 11, 0.1);
+      --color-error: #ef4444;
+      --color-error-light: rgba(239, 68, 68, 0.1);
+      --color-info: #3b82f6;
+      --color-info-light: rgba(59, 130, 246, 0.1);
+      --text-primary: #0f172a;
+      --text-secondary: #64748b;
+      --text-muted: #94a3b8;
+      --border-color: #e2e8f0;
+      --card-bg: #ffffff;
+      --page-bg: #f8fafc;
     }
 
-    .view-all {
-      color: #1a237e;
-      text-decoration: none;
-      font-size: 14px;
+    .dashboard {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--page-bg);
+      min-height: 100vh;
+    }
 
-      &:hover {
-        text-decoration: underline;
+    /* Welcome Section */
+    .welcome-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 32px 40px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+      border-radius: 24px;
+      margin-bottom: 32px;
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        pointer-events: none;
       }
     }
 
-    /* Integrated Tools Section */
-    .tools-section {
-      margin-bottom: 24px;
+    .welcome-content {
+      position: relative;
+      z-index: 1;
+    }
 
-      .card-header {
-        h2 {
-          display: flex;
-          align-items: center;
-          gap: 8px;
+    .welcome-text {
+      color: white;
 
-          mat-icon {
-            color: #1a237e;
-          }
+      .greeting {
+        display: block;
+        font-size: 14px;
+        opacity: 0.9;
+        margin-bottom: 8px;
+        font-weight: 500;
+      }
+
+      h1 {
+        font-size: 32px;
+        font-weight: 800;
+        margin: 0 0 8px;
+        letter-spacing: -0.5px;
+      }
+
+      p {
+        font-size: 15px;
+        opacity: 0.85;
+        margin: 0;
+        max-width: 400px;
+        line-height: 1.5;
+      }
+    }
+
+    .welcome-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+
+      .btn-primary, .btn-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 20px;
+        border-radius: 12px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+      }
+
+      .btn-primary {
+        background: white;
+        color: var(--color-primary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.15);
+        color: white;
+        backdrop-filter: blur(8px);
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.25);
         }
       }
     }
 
-    .tools-grid {
+    .welcome-illustration {
+      position: relative;
+      width: 300px;
+      height: 200px;
+      z-index: 1;
+    }
+
+    .floating-card {
+      position: absolute;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      animation: float 3s ease-in-out infinite;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: var(--color-primary);
+      }
+
+      &.card-1 {
+        top: 0;
+        left: 0;
+        animation-delay: 0s;
+      }
+
+      &.card-2 {
+        top: 60px;
+        right: 0;
+        animation-delay: 0.5s;
+
+        mat-icon { color: var(--color-success); }
+      }
+
+      &.card-3 {
+        bottom: 20px;
+        left: 40px;
+        animation-delay: 1s;
+
+        mat-icon { color: var(--color-info); }
+      }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* Stats Grid */
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
       gap: 16px;
+      border: 1px solid var(--border-color);
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+      }
+    }
+
+    .stat-icon-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      mat-icon {
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+      }
+
+      &.primary {
+        background: var(--color-primary-light);
+        color: var(--color-primary);
+      }
+
+      &.success {
+        background: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      &.warning {
+        background: var(--color-warning-light);
+        color: var(--color-warning);
+      }
+
+      &.error {
+        background: var(--color-error-light);
+        color: var(--color-error);
+      }
+    }
+
+    .stat-trend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 8px;
+
+      mat-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+      }
+
+      &.positive {
+        background: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      &.negative {
+        background: var(--color-error-light);
+        color: var(--color-error);
+      }
+    }
+
+    .stat-content {
+      .stat-value {
+        display: block;
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1;
+        margin-bottom: 4px;
+      }
+
+      .stat-label {
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+    }
+
+    .stat-sparkline {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      opacity: 0.2;
+
+      svg {
+        width: 100%;
+        height: 100%;
+
+        polyline {
+          stroke: var(--color-primary);
+        }
+      }
+    }
+
+    /* Main Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 24px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-color);
+
+      .header-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+
+        mat-icon {
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
+          color: var(--color-primary);
+        }
+
+        h2 {
+          font-size: 16px;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin: 0;
+        }
+      }
+
+      .header-action {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--color-primary);
+        text-decoration: none;
+        transition: gap 0.2s;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          gap: 8px;
+        }
+      }
+    }
+
+    /* Tenants */
+    .tenants-card {
       margin-bottom: 24px;
     }
 
-    .tool-card {
+    .tenant-list {
+      padding: 8px;
+    }
+
+    .tenant-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      animation: slideIn 0.3s ease-out forwards;
+      opacity: 0;
+
+      &:hover {
+        background: #f8fafc;
+
+        .tenant-arrow {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .tenant-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .tenant-info {
+      flex: 1;
+      min-width: 0;
+
+      .tenant-name {
+        display: block;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+      }
+
+      .tenant-domain {
+        display: block;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+    }
+
+    .tenant-metrics {
+      display: flex;
+      gap: 16px;
+
+      .metric {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: var(--text-secondary);
+
+        mat-icon {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+        }
+      }
+    }
+
+    .tenant-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+
+      &.status-running {
+        background: var(--color-success-light);
+        color: var(--color-success);
+
+        .status-dot { background: var(--color-success); }
+      }
+
+      &.status-maintenance {
+        background: var(--color-warning-light);
+        color: var(--color-warning);
+
+        .status-dot { background: var(--color-warning); }
+      }
+
+      &.status-stopped, &.status-error {
+        background: var(--color-error-light);
+        color: var(--color-error);
+
+        .status-dot { background: var(--color-error); }
+      }
+    }
+
+    .tenant-arrow {
+      color: var(--text-muted);
+      opacity: 0;
+      transform: translateX(-8px);
+      transition: all 0.2s;
+    }
+
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px;
+      text-align: center;
+
+      .empty-icon {
+        width: 80px;
+        height: 80px;
+        border-radius: 20px;
+        background: var(--color-primary-light);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+
+        mat-icon {
+          font-size: 40px;
+          width: 40px;
+          height: 40px;
+          color: var(--color-primary);
+        }
+      }
+
+      h3 {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 8px;
+      }
+
+      p {
+        font-size: 14px;
+        color: var(--text-secondary);
+        margin: 0 0 24px;
+      }
+
+      .btn-primary {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: var(--color-primary);
+        color: white;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.2s;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+        }
+      }
+    }
+
+    /* Tools Grid */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .tool-item {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 16px;
-      background: #f8f9fa;
+      padding: 14px;
+      background: #f8fafc;
       border-radius: 12px;
       cursor: pointer;
       transition: all 0.2s;
-      border: 2px solid transparent;
 
       &:hover {
-        background: #e8eaf6;
-        border-color: #1a237e;
+        background: var(--color-primary-light);
         transform: translateX(4px);
       }
 
       &.online {
-        border-left: 4px solid #4caf50;
-      }
-
-      &.offline {
-        border-left: 4px solid #f44336;
-        opacity: 0.7;
-      }
-
-      .tool-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        flex-shrink: 0;
-
-        mat-icon {
-          font-size: 24px;
-          width: 24px;
-          height: 24px;
-        }
-      }
-
-      .tool-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-
-        .tool-name {
-          font-weight: 600;
-          color: #333;
-          font-size: 15px;
-        }
-
-        .tool-desc {
-          font-size: 12px;
-          color: #666;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      }
-
-      .tool-status {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        font-size: 11px;
-        color: #666;
-
-        .status-indicator {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-
-          &.online { background: #4caf50; }
-          &.offline { background: #f44336; }
-          &.unknown { background: #ff9800; }
-        }
-      }
-
-      .tool-arrow {
-        color: #1a237e;
-        opacity: 0;
-        transition: opacity 0.2s;
-      }
-
-      &:hover .tool-arrow {
-        opacity: 1;
+        .status-indicator { background: var(--color-success); }
       }
     }
 
-    .tools-categories {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 24px;
-      padding-top: 16px;
-      border-top: 1px solid #e0e0e0;
-
-      .category-group {
-        h4 {
-          font-size: 12px;
-          text-transform: uppercase;
-          color: #666;
-          margin: 0 0 12px;
-          letter-spacing: 0.5px;
-        }
-
-        .category-tools {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-
-        .category-tool-link {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 8px 12px;
-          color: #333;
-          text-decoration: none;
-          border-radius: 6px;
-          font-size: 13px;
-          transition: all 0.2s;
-
-          mat-icon {
-            font-size: 18px;
-            width: 18px;
-            height: 18px;
-            color: #1a237e;
-          }
-
-          &:hover {
-            background: #e3f2fd;
-          }
-        }
-      }
-    }
-
-    .tenant-list {
-      .tenant-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 0;
-        border-bottom: 1px solid #f5f5f5;
-
-        &:last-child {
-          border-bottom: none;
-        }
-      }
-
-      .tenant-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .tenant-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 8px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: 600;
-        font-size: 14px;
-      }
-
-      .tenant-details {
-        display: flex;
-        flex-direction: column;
-
-        .tenant-name {
-          font-weight: 500;
-          color: #333;
-        }
-
-        .tenant-domain {
-          font-size: 12px;
-          color: #757575;
-        }
-      }
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 40px 20px;
+    .tool-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-shrink: 0;
 
       mat-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-        color: #bdbdbd;
-      }
-
-      p {
-        color: #757575;
-        margin: 12px 0 20px;
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
       }
     }
 
-    .activity-feed {
-      .activity-item {
-        display: flex;
-        gap: 12px;
-        padding: 12px 0;
-        border-bottom: 1px solid #f5f5f5;
+    .tool-info {
+      flex: 1;
+      min-width: 0;
 
-        &:last-child {
-          border-bottom: none;
-        }
+      .tool-name {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-primary);
       }
 
-      .activity-icon {
-        width: 36px;
-        height: 36px;
+      .tool-desc {
+        display: block;
+        font-size: 11px;
+        color: var(--text-secondary);
+      }
+    }
+
+    .tool-status {
+      .status-indicator {
+        width: 8px;
+        height: 8px;
         border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        mat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-        }
-
-        &.success {
-          background: #e8f5e9;
-          color: #2e7d32;
-        }
-
-        &.warning {
-          background: #fff3e0;
-          color: #f57c00;
-        }
-
-        &.info {
-          background: #e3f2fd;
-          color: #1565c0;
-        }
-
-        &.error {
-          background: #ffebee;
-          color: #c62828;
-        }
-      }
-
-      .activity-content {
-        flex: 1;
-
-        .activity-text {
-          margin: 0 0 4px;
-          font-size: 14px;
-          color: #333;
-        }
-
-        .activity-time {
-          font-size: 12px;
-          color: #9e9e9e;
-        }
+        background: var(--text-muted);
       }
     }
 
-    .metric-value {
+    /* Activity Feed */
+    .activity-card {
+      margin-bottom: 20px;
+    }
+
+    .live-indicator {
       display: flex;
-      align-items: baseline;
-      gap: 12px;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--color-success);
 
-      .big-number {
-        font-size: 36px;
-        font-weight: 500;
-        color: #333;
+      .live-dot {
+        width: 8px;
+        height: 8px;
+        background: var(--color-success);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .activity-list {
+      padding: 8px 16px;
+    }
+
+    .activity-item {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid #f1f5f9;
+      animation: slideIn 0.3s ease-out forwards;
+      opacity: 0;
+
+      &:last-child { border-bottom: none; }
+    }
+
+    .activity-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
 
-      .metric-trend {
+      &.success {
+        background: var(--color-success-light);
+        color: var(--color-success);
+      }
+
+      &.warning {
+        background: var(--color-warning-light);
+        color: var(--color-warning);
+      }
+
+      &.info {
+        background: var(--color-info-light);
+        color: var(--color-info);
+      }
+
+      &.error {
+        background: var(--color-error-light);
+        color: var(--color-error);
+      }
+    }
+
+    .activity-content {
+      flex: 1;
+
+      .activity-message {
+        font-size: 13px;
+        color: var(--text-primary);
+        margin: 0 0 4px;
+        line-height: 1.4;
+      }
+
+      .activity-meta {
+        display: flex;
+        gap: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
+
+        .activity-tenant {
+          color: var(--color-primary);
+          font-weight: 500;
+        }
+      }
+    }
+
+    /* Metrics Row */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .metric-card {
+      padding: 20px;
+
+      .metric-header {
         display: flex;
         align-items: center;
-        font-size: 14px;
+        gap: 8px;
+        margin-bottom: 12px;
+        font-size: 13px;
         font-weight: 500;
+        color: var(--text-secondary);
 
         mat-icon {
           font-size: 18px;
           width: 18px;
           height: 18px;
         }
+      }
 
-        &.positive {
-          color: #2e7d32;
+      .metric-value {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 16px;
+
+        .value {
+          font-size: 28px;
+          font-weight: 700;
+          color: var(--text-primary);
         }
 
-        &.negative {
-          color: #c62828;
+        .trend {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          font-size: 12px;
+          font-weight: 600;
+
+          mat-icon {
+            font-size: 14px;
+            width: 14px;
+            height: 14px;
+          }
+
+          &.positive { color: var(--color-success); }
+          &.negative { color: var(--color-error); }
         }
+      }
+
+      .metric-chart {
+        display: flex;
+        align-items: flex-end;
+        gap: 4px;
+        height: 40px;
+
+        .chart-bar {
+          flex: 1;
+          background: linear-gradient(180deg, var(--color-primary) 0%, rgba(99, 102, 241, 0.3) 100%);
+          border-radius: 4px 4px 0 0;
+          min-height: 4px;
+        }
+      }
+
+      .metric-progress {
+        height: 6px;
+        background: #e2e8f0;
+        border-radius: 3px;
+        overflow: hidden;
+
+        .progress-bar {
+          height: 100%;
+          background: linear-gradient(90deg, var(--color-success) 0%, var(--color-warning) 100%);
+          border-radius: 3px;
+          transition: width 0.5s ease;
+        }
+      }
+
+      .metric-note {
+        display: block;
+        margin-top: 8px;
+        font-size: 11px;
+        color: var(--text-muted);
       }
     }
 
-    .quick-actions {
+    /* Quick Actions */
+    .actions-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 16px;
+    }
 
-      @media (max-width: 768px) {
+    .action-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: 20px 16px;
+      background: #f8fafc;
+      border-radius: 14px;
+      text-decoration: none;
+      transition: all 0.2s;
+
+      &:hover {
+        background: var(--color-primary-light);
+        transform: translateY(-2px);
+      }
+    }
+
+    .action-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+
+      mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
+      }
+    }
+
+    .action-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      text-align: center;
+    }
+
+    /* Responsive */
+    @media (max-width: 1200px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .stats-grid {
         grid-template-columns: repeat(2, 1fr);
       }
 
-      .action-card {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
+      .tools-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .welcome-illustration {
+        display: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard {
+        padding: 16px;
+      }
+
+      .welcome-section {
         padding: 24px;
-        background: #f5f5f5;
-        border-radius: 8px;
-        text-decoration: none;
-        color: #333;
-        transition: all 0.2s;
+      }
 
-        &:hover {
-          background: #e3f2fd;
-          transform: translateY(-2px);
-        }
+      .welcome-text h1 {
+        font-size: 24px;
+      }
 
-        mat-icon {
-          font-size: 32px;
-          width: 32px;
-          height: 32px;
-          color: #1a237e;
-        }
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
 
-        span {
-          font-weight: 500;
-          text-align: center;
-        }
+      .metrics-row {
+        grid-template-columns: 1fr;
       }
     }
   `]
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
   private monitoringService = inject(MonitoringService);
   private tenantService = inject(TenantService);
   private authService = inject(AuthService);
+  private router = inject(Router);
+  private destroy$ = new Subject<void>();
+
+  Math = Math;
+
+  userName = 'Admin';
+  greeting = '';
+  showToolsSection = false;
 
   stats: DashboardStats = {
     totalTenants: 0,
@@ -622,8 +1233,17 @@ export class DashboardComponent implements OnInit {
     averageResponseTime: 0
   };
 
+  statCards: Array<{
+    icon: string;
+    label: string;
+    value: number;
+    type: string;
+    trend?: number;
+    sparkline?: string;
+  }> = [];
+
   tenants: Tenant[] = [];
-  showToolsSection = false;
+  chartHours: number[] = [];
 
   integratedTools: IntegratedTool[] = [
     {
@@ -632,6 +1252,7 @@ export class DashboardComponent implements OnInit {
       description: 'Dashboards & Monitoring',
       icon: 'dashboard',
       color: '#F46800',
+      gradient: 'linear-gradient(135deg, #F46800, #FF9A44)',
       status: 'online',
       url: 'http://localhost:3000',
       internalPath: '/tools/grafana',
@@ -643,6 +1264,7 @@ export class DashboardComponent implements OnInit {
       description: 'Logs & Analytics',
       icon: 'search',
       color: '#005571',
+      gradient: 'linear-gradient(135deg, #005571, #00A3E0)',
       status: 'online',
       url: 'http://localhost:5601',
       internalPath: '/tools/kibana',
@@ -650,10 +1272,11 @@ export class DashboardComponent implements OnInit {
     },
     {
       id: 'keycloak',
-      name: 'Keycloak Admin',
+      name: 'Keycloak',
       description: 'Identity & Access',
       icon: 'admin_panel_settings',
       color: '#4D4D4D',
+      gradient: 'linear-gradient(135deg, #4D4D4D, #7D7D7D)',
       status: 'online',
       url: 'http://localhost:8180/admin',
       internalPath: '/tools/keycloak-admin',
@@ -665,21 +1288,11 @@ export class DashboardComponent implements OnInit {
       description: 'Workflow Engine',
       icon: 'account_tree',
       color: '#FC5D0D',
+      gradient: 'linear-gradient(135deg, #FC5D0D, #FD9A58)',
       status: 'online',
       url: 'http://localhost:8081',
       internalPath: '/tools/camunda',
       category: 'workflow'
-    },
-    {
-      id: 'drools',
-      name: 'Drools',
-      description: 'Business Rules',
-      icon: 'rule',
-      color: '#1A9FD4',
-      status: 'online',
-      url: 'http://localhost:8084',
-      internalPath: '/tools/drools',
-      category: 'rules'
     },
     {
       id: 'prometheus',
@@ -687,80 +1300,71 @@ export class DashboardComponent implements OnInit {
       description: 'Metrics & Alerting',
       icon: 'analytics',
       color: '#E6522C',
+      gradient: 'linear-gradient(135deg, #E6522C, #FF7F5C)',
       status: 'online',
       url: 'http://localhost:9090',
       internalPath: '/tools/prometheus',
       category: 'monitoring'
     },
     {
-      id: 'kafka',
-      name: 'Kafka UI',
-      description: 'Message Broker',
-      icon: 'message',
-      color: '#231F20',
-      status: 'online',
-      url: 'http://localhost:8090',
-      internalPath: '/tools/kafka',
-      category: 'messaging'
-    },
-    {
       id: 'minio',
       name: 'MinIO',
-      description: 'Object Storage (GED)',
+      description: 'Object Storage',
       icon: 'cloud_upload',
       color: '#C72C48',
+      gradient: 'linear-gradient(135deg, #C72C48, #FF5C7A)',
       status: 'online',
       url: 'http://localhost:9001',
       internalPath: '/tools/minio',
       category: 'storage'
-    },
-    {
-      id: 'swagger',
-      name: 'API Documentation',
-      description: 'OpenAPI / Swagger',
-      icon: 'api',
-      color: '#85EA2D',
-      status: 'online',
-      url: 'http://localhost:8080/swagger-ui.html',
-      internalPath: '/tools/api-docs',
-      category: 'developer'
-    },
-    {
-      id: 'jaeger',
-      name: 'Jaeger',
-      description: 'Distributed Tracing',
-      icon: 'timeline',
-      color: '#60D0E4',
-      status: 'online',
-      url: 'http://localhost:16686',
-      internalPath: '/tools/jaeger',
-      category: 'monitoring'
     }
   ];
 
-  toolCategories = [
-    { id: 'monitoring', name: 'Monitoring & Logs' },
-    { id: 'security', name: 'Sécurité' },
-    { id: 'workflow', name: 'Workflow & Règles' },
-    { id: 'developer', name: 'Développeur' }
+  recentActivities: Activity[] = [
+    { type: 'success', icon: 'check_circle', message: 'GUCE Cameroun deploye avec succes', time: 'Il y a 5 min', tenant: 'GUCE-CM' },
+    { type: 'info', icon: 'code', message: 'Generation procedure Import terminee', time: 'Il y a 15 min' },
+    { type: 'warning', icon: 'warning', message: 'Utilisation CPU elevee detectee', time: 'Il y a 30 min', tenant: 'GUCE-TD' },
+    { type: 'success', icon: 'person_add', message: 'Nouvel utilisateur cree', time: 'Il y a 1h', tenant: 'GUCE-RCA' },
+    { type: 'info', icon: 'sync', message: 'Synchronisation templates terminee', time: 'Il y a 2h' },
+    { type: 'success', icon: 'cloud_done', message: 'Backup automatique complete', time: 'Il y a 3h' }
   ];
 
-  recentActivities = [
-    { type: 'success', icon: 'check_circle', message: 'GUCE Cameroun deploye avec succes', time: 'Il y a 5 min' },
-    { type: 'info', icon: 'code', message: 'Generation procedure Import terminee', time: 'Il y a 15 min' },
-    { type: 'warning', icon: 'warning', message: 'GUCE Tchad: Utilisation CPU elevee', time: 'Il y a 30 min' },
-    { type: 'success', icon: 'person_add', message: 'Nouvel utilisateur cree sur GUCE RCA', time: 'Il y a 1h' },
-    { type: 'info', icon: 'sync', message: 'Synchronisation templates terminee', time: 'Il y a 2h' }
+  quickActions = [
+    { icon: 'add_circle', label: 'Nouvelle Instance', route: '/tenants/create', gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)' },
+    { icon: 'code', label: 'Generer Procedure', route: '/generator/procedures', gradient: 'linear-gradient(135deg, #10b981, #34d399)' },
+    { icon: 'monitoring', label: 'Monitoring 360', route: '/monitoring/dashboard', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)' },
+    { icon: 'library_books', label: 'Templates', route: '/templates/procedures/import', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)' }
   ];
 
   ngOnInit(): void {
+    this.setGreeting();
     this.loadDashboardData();
     this.checkToolsAccess();
-    this.checkToolsHealth();
+    this.generateChartData();
+
+    // Refresh every 30 seconds
+    interval(30000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.loadDashboardData());
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  setGreeting(): void {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      this.greeting = 'Bonjour';
+    } else if (hour < 18) {
+      this.greeting = 'Bon apres-midi';
+    } else {
+      this.greeting = 'Bonsoir';
+    }
   }
 
   loadDashboardData(): void {
-    // Mock data for demo - replace with real API calls
     this.stats = {
       totalTenants: 5,
       healthyTenants: 3,
@@ -771,6 +1375,38 @@ export class DashboardComponent implements OnInit {
       totalActiveUsers: 847,
       averageResponseTime: 245
     };
+
+    this.statCards = [
+      {
+        icon: 'apartment',
+        label: 'Total Instances',
+        value: this.stats.totalTenants,
+        type: 'primary',
+        trend: 8,
+        sparkline: '0,30 15,20 30,25 45,15 60,22 75,18 90,28 100,20'
+      },
+      {
+        icon: 'check_circle',
+        label: 'Instances Saines',
+        value: this.stats.healthyTenants,
+        type: 'success',
+        trend: 5
+      },
+      {
+        icon: 'warning',
+        label: 'En Maintenance',
+        value: this.stats.degradedTenants,
+        type: 'warning',
+        trend: -2
+      },
+      {
+        icon: 'notifications_active',
+        label: 'Alertes Actives',
+        value: this.stats.activeAlerts,
+        type: 'error',
+        trend: 12
+      }
+    ];
 
     this.tenants = [
       {
@@ -831,7 +1467,6 @@ export class DashboardComponent implements OnInit {
   }
 
   checkToolsAccess(): void {
-    // Show tools section for superadmin and hub-admin roles
     this.showToolsSection = this.authService.hasAnyRole([
       'SUPER_ADMIN',
       'hub-admin',
@@ -842,36 +1477,31 @@ export class DashboardComponent implements OnInit {
     ]);
   }
 
-  checkToolsHealth(): void {
-    // Check health of each tool (simplified version)
-    // In production, this would call the actual health endpoints
-    this.integratedTools.forEach(tool => {
-      // Simulate health check - in production use HTTP calls
-      tool.status = 'online'; // Default to online for demo
-    });
+  generateChartData(): void {
+    this.chartHours = Array.from({ length: 12 }, () => Math.floor(Math.random() * 80) + 20);
   }
 
-  getToolsByCategory(categoryId: string): IntegratedTool[] {
-    if (categoryId === 'workflow') {
-      return this.integratedTools.filter(t => t.category === 'workflow' || t.category === 'rules');
-    }
-    return this.integratedTools.filter(t => t.category === categoryId);
-  }
-
-  openTool(tool: IntegratedTool): void {
-    // Open tool in new tab (external URL) or navigate internally
-    window.open(tool.url, '_blank');
+  getRandomMetric(min: number, max: number): number {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   getStatusLabel(status: TenantStatus): string {
     const labels: Record<TenantStatus, string> = {
       [TenantStatus.PENDING]: 'En attente',
       [TenantStatus.PROVISIONING]: 'Provisionnement',
-      [TenantStatus.RUNNING]: 'En cours',
+      [TenantStatus.RUNNING]: 'En ligne',
       [TenantStatus.STOPPED]: 'Arrete',
       [TenantStatus.ERROR]: 'Erreur',
       [TenantStatus.MAINTENANCE]: 'Maintenance'
     };
     return labels[status] || status;
+  }
+
+  navigateToTenant(tenant: Tenant): void {
+    this.router.navigate(['/tenants', tenant.id]);
+  }
+
+  openTool(tool: IntegratedTool): void {
+    window.open(tool.url, '_blank');
   }
 }
