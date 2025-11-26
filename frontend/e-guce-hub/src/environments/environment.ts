@@ -1,6 +1,9 @@
 export const environment = {
   production: false,
 
+  // API URL
+  apiUrl: 'http://localhost:8080/api/v1',
+
   // Hub Identification
   hub: {
     name: 'E-GUCE 3G Generator Hub',
@@ -32,6 +35,15 @@ export const environment = {
     notifications: '/api/v1/notifications'
   },
 
+  // Logging Configuration
+  logging: {
+    level: 'info',
+    console: true,
+    remote: false,
+    remoteUrl: '',
+    enabled: true
+  },
+
   // Keycloak Configuration (Single Client for Hub)
   keycloak: {
     url: 'http://localhost:8180',
@@ -41,6 +53,7 @@ export const environment = {
     silentCheckSsoRedirectUri: 'http://localhost:4200/assets/silent-check-sso.html',
     scope: 'openid profile email',
     responseType: 'code',
+    tokenMinValidity: 30,
     // Token refresh configuration
     refreshToken: {
       enabled: true,
@@ -70,14 +83,6 @@ export const environment = {
     url: 'ws://localhost:8080/ws',
     reconnectInterval: 5000,
     maxReconnectAttempts: 10
-  },
-
-  // Logging Configuration
-  logging: {
-    level: 'debug',        // debug, info, warn, error
-    console: true,
-    remote: false,
-    remoteUrl: '/api/v1/logs'
   },
 
   // Feature Flags

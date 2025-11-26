@@ -144,6 +144,40 @@ start_infrastructure() {
 }
 
 # =============================================================================
+# Vérification du build
+# =============================================================================
+
+check_build_status() {
+    # Vérifie si les microservices sont buildés
+    local all_built=true
+    
+    log_info "Vérification des builds existants..."
+    
+    if [ ! -d "./ms-generator/target/classes" ]; then
+        log_warning "ms-generator n'est pas buildé"
+        all_built=false
+    else
+        log_success "ms-generator est buildé"
+    fi
+    
+    if [ ! -d "./ms-procedure/target/classes" ]; then
+        log_warning "ms-procedure n'est pas buildé"
+        all_built=false
+    else
+        log_success "ms-procedure est buildé"
+    fi
+    
+    if [ ! -d "./ms-referential/target/classes" ]; then
+        log_warning "ms-referential n'est pas buildé"
+        all_built=false
+    else
+        log_success "ms-referential est buildé"
+    fi
+    
+    return $([ "$all_built" = true ] && echo 0 || echo 1)
+}
+
+# =============================================================================
 # Démarrage des microservices Backend
 # =============================================================================
 
@@ -159,33 +193,67 @@ start_backend() {
         MVN="mvn"
     fi
 
-    # Compiler le projet si nécessaire
-    if [ ! -d "./ms-generator/target" ] || [ "$1" == "--build" ]; then
-        log_info "Compilation du projet Maven..."
-        $MVN clean install -DskipTests -q
+    # Vérifier si un build est nécessaire
+    if ! check_build_status || [ "$1" == "--build" ]; then
+        log_section "Compilation du projet Maven"
+        log_info "Nettoyage des builds précédents..."
+        $MVN clean -q
+        
+        log_info "Compilation de guce-common..."
+        cd "$PROJECT_ROOT/guce-common"
+        $MVN install -DskipTests -q
+        
+        log_info "Compilation de ms-generator..."
+        cd "$PROJECT_ROOT/ms-generator"
+        $MVN package -DskipTests -q
+        
+        log_info "Compilation de ms-procedure..."
+        cd "$PROJECT_ROOT/ms-procedure"
+        $MVN package -DskipTests -q
+        
+        log_info "Compilation de ms-referential..."
+        cd "$PROJECT_ROOT/ms-referential"
+        $MVN package -DskipTests -q
+        
+        log_success "Compilation terminée avec succès"
+    else
+        log_success "Tous les services sont déjà buildés. Utiliser --build pour forcer la recompilation"
     fi
 
     # Démarrer les microservices en arrière-plan
-    log_info "Démarrage de ms-generator..."
-    cd "$PROJECT_ROOT/ms-generator"
-    $MVN spring-boot:run -Dspring-boot.run.profiles=dev > /tmp/ms-generator.log 2>&1 &
-    echo $! > /tmp/ms-generator.pid
-
-    log_info "Démarrage de ms-procedure..."
-    cd "$PROJECT_ROOT/ms-procedure"
-    $MVN spring-boot:run -Dspring-boot.run.profiles=dev > /tmp/ms-procedure.log 2>&1 &
-    echo $! > /tmp/ms-procedure.pid
-
-    log_info "Démarrage de ms-referential..."
+    log_section "Lancement des microservices Backend"
+    
+    log_info "Démarrage de ms-referential (port 8101)..."
     cd "$PROJECT_ROOT/ms-referential"
     $MVN spring-boot:run -Dspring-boot.run.profiles=dev > /tmp/ms-referential.log 2>&1 &
-    echo $! > /tmp/ms-referential.pid
+    REFERENTIAL_PID=$!
+    echo $REFERENTIAL_PID > /tmp/ms-referential.pid
+    log_success "ms-referential lancé (PID: $REFERENTIAL_PID)"
+
+    log_info "Démarrage de ms-procedure (port 8102)..."
+    cd "$PROJECT_ROOT/ms-procedure"
+    $MVN spring-boot:run -Dspring-boot.run.profiles=dev > /tmp/ms-procedure.log 2>&1 &
+    PROCEDURE_PID=$!
+    echo $PROCEDURE_PID > /tmp/ms-procedure.pid
+    log_success "ms-procedure lancé (PID: $PROCEDURE_PID)"
+
+    log_info "Démarrage de ms-generator (port 8103)..."
+    cd "$PROJECT_ROOT/ms-generator"
+    $MVN spring-boot:run -Dspring-boot.run.profiles=dev > /tmp/ms-generator.log 2>&1 &
+    GENERATOR_PID=$!
+    echo $GENERATOR_PID > /tmp/ms-generator.pid
+    log_success "ms-generator lancé (PID: $GENERATOR_PID)"
 
     cd "$PROJECT_ROOT"
 
-    # Attendre que les APIs soient disponibles
-    sleep 10
-    wait_for_service "http://localhost:8080/actuator/health" "API Gateway" 60 || true
+    # Attendre que les microservices soient prêts
+    log_info "Attente du démarrage des microservices (cela peut prendre 1-2 minutes)..."
+    echo ""
+    
+    sleep 15
+    wait_for_service "http://localhost:8101/actuator/health" "ms-referential (8101)" 120 || true
+    wait_for_service "http://localhost:8102/actuator/health" "ms-procedure (8102)" 120 || true
+    wait_for_service "http://localhost:8103/actuator/health" "ms-generator (8103)" 120 || true
 
     log_success "Microservices Backend démarrés"
 }
@@ -201,32 +269,45 @@ start_frontend() {
     if [ ! -d "$PROJECT_ROOT/frontend/e-guce-hub/node_modules" ]; then
         log_info "Installation des dépendances Hub..."
         cd "$PROJECT_ROOT/frontend/e-guce-hub"
-        npm install
+        npm install > /dev/null 2>&1
+        log_success "Dépendances Hub installées"
+    else
+        log_success "Dépendances Hub déjà installées"
     fi
 
     if [ ! -d "$PROJECT_ROOT/frontend/guce-instance-template/node_modules" ]; then
         log_info "Installation des dépendances Instance Template..."
         cd "$PROJECT_ROOT/frontend/guce-instance-template"
-        npm install
+        npm install > /dev/null 2>&1
+        log_success "Dépendances Instance Template installées"
+    else
+        log_success "Dépendances Instance Template déjà installées"
     fi
 
     # Démarrer le Hub frontend (port 4200)
     log_info "Démarrage du Hub Frontend (port 4200)..."
     cd "$PROJECT_ROOT/frontend/e-guce-hub"
     npm start > /tmp/hub-frontend.log 2>&1 &
-    echo $! > /tmp/hub-frontend.pid
+    HUB_PID=$!
+    echo $HUB_PID > /tmp/hub-frontend.pid
+    log_success "Hub Frontend lancé (PID: $HUB_PID)"
 
     # Démarrer l'Instance Template frontend (port 4201)
     log_info "Démarrage de l'Instance Template Frontend (port 4201)..."
     cd "$PROJECT_ROOT/frontend/guce-instance-template"
     npm start -- --port 4201 > /tmp/instance-frontend.log 2>&1 &
-    echo $! > /tmp/instance-frontend.pid
+    INSTANCE_PID=$!
+    echo $INSTANCE_PID > /tmp/instance-frontend.pid
+    log_success "Instance Template Frontend lancé (PID: $INSTANCE_PID)"
 
     cd "$PROJECT_ROOT"
 
     # Attendre que les frontends soient disponibles
-    wait_for_service "http://localhost:4200" "Hub Frontend" 60
-    wait_for_service "http://localhost:4201" "Instance Frontend" 60 || true
+    log_info "Attente du démarrage des frontends (cela peut prendre 30-60 secondes)..."
+    echo ""
+    sleep 10
+    wait_for_service "http://localhost:4200" "Hub Frontend" 120
+    wait_for_service "http://localhost:4201" "Instance Template Frontend" 120 || true
 
     log_success "Frontends Angular démarrés"
 }
@@ -236,42 +317,57 @@ start_frontend() {
 # =============================================================================
 
 print_summary() {
-    log_section "E-GUCE 3G - Système démarré"
+    log_section "E-GUCE 3G - Système complètement démarré"
 
     echo ""
-    echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║                    SERVICES DISPONIBLES                         ║${NC}"
-    echo -e "${GREEN}╠══════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║${NC}                                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC} ${CYAN}APPLICATIONS${NC}                                                     ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Hub Frontend:          ${YELLOW}http://localhost:4200${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Instance Frontend:     ${YELLOW}http://localhost:4201${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC} ${CYAN}OUTILS INTÉGRÉS (Interface Unique)${NC}                                ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Grafana:               ${YELLOW}http://localhost:3000${NC}  (admin/admin)   ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Kibana:                ${YELLOW}http://localhost:5601${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Keycloak Admin:        ${YELLOW}http://localhost:8180${NC}  (admin/admin)   ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Camunda Operate:       ${YELLOW}http://localhost:8081${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Camunda Tasklist:      ${YELLOW}http://localhost:8082${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Prometheus:            ${YELLOW}http://localhost:9090${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Kafka UI:              ${YELLOW}http://localhost:8090${NC}                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   MinIO Console:         ${YELLOW}http://localhost:9001${NC}  (guce/guceminio)${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC} ${CYAN}BASES DE DONNÉES${NC}                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   PostgreSQL:            ${YELLOW}localhost:5432${NC}  (guce/guce)            ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   MongoDB:               ${YELLOW}localhost:27017${NC} (guce/guce)            ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Redis:                 ${YELLOW}localhost:6379${NC}                         ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Elasticsearch:         ${YELLOW}localhost:9200${NC}                         ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC} ${CYAN}SUPER ADMIN HUB${NC}                                                    ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   URL:      ${YELLOW}http://localhost:4200${NC}                                ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Login:    ${YELLOW}hub-admin${NC}                                            ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Password: ${YELLOW}hubadmin${NC} (à changer à la première connexion)         ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}   Rôle:     ${YELLOW}SUPER_ADMIN${NC} (accès total)                            ${GREEN}║${NC}"
-    echo -e "${GREEN}║${NC}                                                                  ${GREEN}║${NC}"
-    echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║                        PLATEFORME E-GUCE 3G OPÉRATIONNELLE                    ║${NC}"
+    echo -e "${GREEN}╠════════════════════════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}APPLICATIONS${NC}                                                             ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Hub Frontend:                  ${YELLOW}http://localhost:4200${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Instance Template:            ${YELLOW}http://localhost:4201${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}MICROSERVICES${NC}                                                          ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ms-referential:                ${YELLOW}http://localhost:8101/actuator/health${NC}  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ms-procedure:                  ${YELLOW}http://localhost:8102/actuator/health${NC}  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ms-generator:                  ${YELLOW}http://localhost:8103/actuator/health${NC}  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}INFRASTRUCTURE & OUTILS${NC}                                                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Keycloak (SSO):                ${YELLOW}http://localhost:8180${NC}  (admin/admin)    ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Grafana (Monitoring):          ${YELLOW}http://localhost:3000${NC}   (admin/admin)    ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Prometheus (Metrics):          ${YELLOW}http://localhost:9090${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Camunda Operate:               ${YELLOW}http://localhost:8081${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Camunda Tasklist:              ${YELLOW}http://localhost:8082${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Kafka UI:                      ${YELLOW}http://localhost:8090${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   MinIO Console:                 ${YELLOW}http://localhost:9001${NC}  (guce/guceminio)${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}BASES DE DONNÉES${NC}                                                       ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   PostgreSQL:                    ${YELLOW}localhost:5432${NC}   (guce/guce)            ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   MongoDB:                       ${YELLOW}localhost:27017${NC}  (guce/guce)            ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Redis:                         ${YELLOW}localhost:6379${NC}                         ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Elasticsearch:                 ${YELLOW}localhost:9200${NC}                         ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}SUPER ADMIN - HUB CREDENTIALS${NC}                                            ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   URL:                           ${YELLOW}http://localhost:4200${NC}                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Email:                         ${YELLOW}admin@guce.cm${NC}                           ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Password:                      ${YELLOW}admin${NC}                                    ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   Role:                          ${YELLOW}SUPER_ADMIN${NC} (accès total)              ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC} ${CYAN}MODULES DISPONIBLES${NC}                                                     ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Dashboard                                                               ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Tenant Builder (gestion des instances)                                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Generator Engine (génération de code)                                   ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Monitoring 360 (surveillance complète)                                  ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Admin Central (administration)                                          ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}   ✓ Templates Library (bibliothèque de templates)                           ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}                                                                                ${GREEN}║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "Pour arrêter tous les services: ${YELLOW}./stop.sh${NC}"
+    echo -e "${YELLOW}COMMANDES UTILES:${NC}"
+    echo -e "  Arrêter tous les services:  ${YELLOW}./stop.sh${NC}"
+    echo -e "  Forcer recompilation:       ${YELLOW}./start.sh --build${NC}"
+    echo -e "  Consulter les logs:         ${YELLOW}tail -f /tmp/ms-*.log${NC}"
     echo ""
 }
 
@@ -285,10 +381,16 @@ show_help() {
     echo "Options:"
     echo "  --all           Démarrer tout (infra + backend + frontend) [défaut]"
     echo "  --infra         Démarrer uniquement l'infrastructure Docker"
-    echo "  --backend       Démarrer uniquement les microservices"
+    echo "  --backend       Démarrer uniquement les microservices (avec build auto si nécessaire)"
     echo "  --frontend      Démarrer uniquement les frontends"
-    echo "  --build         Forcer la recompilation du backend"
+    echo "  --build         Forcer la compilation complète avant de démarrer"
     echo "  --help          Afficher cette aide"
+    echo ""
+    echo "Exemples:"
+    echo "  $0                  # Démarre tout avec build auto si nécessaire"
+    echo "  $0 --build          # Force la recompilation et redémarre"
+    echo "  $0 --infra          # Démarre uniquement Docker"
+    echo "  $0 --backend        # Démarre backend avec détection de build"
     echo ""
 }
 
@@ -322,6 +424,7 @@ main() {
                     ;;
                 --build)
                     build_flag="--build"
+                    start_back=true
                     ;;
                 --help)
                     show_help
@@ -337,12 +440,28 @@ main() {
     fi
 
     echo ""
-    echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║          E-GUCE 3G - Démarrage du système                        ║${NC}"
-    echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║                E-GUCE 3G - Démarrage complet du système                       ║${NC}"
+    echo -e "${CYAN}║                                                                                ║${NC}"
+    echo -e "${CYAN}║  Cette plateforme démarre:                                                   ║${NC}"
+    echo -e "${CYAN}║  ✓ Infrastructure Docker (16 services)                                       ║${NC}"
+    echo -e "${CYAN}║  ✓ Microservices Backend Spring Boot (3 services)                            ║${NC}"
+    echo -e "${CYAN}║  ✓ Frontends Angular (2 applications)                                        ║${NC}"
+    echo -e "${CYAN}║                                                                                ║${NC}"
+    echo -e "${CYAN}║  Durée estimée: 3-5 minutes                                                  ║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 
     check_prerequisites
+
+    # Vérifier le build si backend est demandé
+    if [ "$start_back" = true ] && [ -z "$build_flag" ]; then
+        log_section "Vérification du statut de build"
+        if ! check_build_status; then
+            log_warning "Certains services n'ont pas été buildés. Compilation requise..."
+            build_flag="--build"
+        fi
+    fi
 
     if [ "$start_infra" = true ]; then
         start_infrastructure

@@ -1,16 +1,18 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { TenantService } from '@core/services/tenant.service';
 import { Tenant, TenantStatus } from '@core/models/tenant.model';
 
 @Component({
   selector: 'hub-tenant-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterModule, MatIconModule, MatButtonModule, MatMenuModule],
+  imports: [CommonModule, FormsModule, RouterModule, MatIconModule, MatButtonModule, MatMenuModule, MatDividerModule],
   template: `
     <div class="tenant-dashboard">
       <div class="page-header">
