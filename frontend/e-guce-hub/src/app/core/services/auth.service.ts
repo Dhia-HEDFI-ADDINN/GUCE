@@ -77,7 +77,7 @@ export class AuthService {
   /**
    * Check if user is logged in
    */
-  isLoggedIn(): Promise<boolean> {
+  isLoggedIn(): boolean {
     return this.keycloak.isLoggedIn();
   }
 
