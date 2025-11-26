@@ -1,0 +1,336 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: guce-gateway
+
+  # Redis for Rate Limiting
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/e-guce-hub
+          jwk-set-uri: http://localhost:8180/realms/e-guce-hub/protocol/openid-connect/certs
+
+  # Cloud Gateway Routes
+  cloud:
+    gateway:
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        - name: Retry
+          args:
+            retries: 3
+            statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE,GATEWAY_TIMEOUT
+            methods: GET
+            backoff:
+              firstBackoff: 100ms
+              maxBackoff: 500ms
+              factor: 2
+
+      routes:
+        # ===========================================
+        # HUB MICROSERVICES ROUTES
+        # ===========================================
+
+        # Tenant Service
+        - id: ms-tenant
+          uri: http://localhost:8085
+          predicates:
+            - Path=/api/v1/tenants/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: tenantCircuitBreaker
+                fallbackUri: forward:/fallback/tenant
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@userKeyResolver}"
+
+        # Generator Service
+        - id: ms-generator
+          uri: http://localhost:8088
+          predicates:
+            - Path=/api/v1/generator/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: generatorCircuitBreaker
+                fallbackUri: forward:/fallback/generator
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+
+        # Monitoring Service (Hub aggregated)
+        - id: ms-monitoring
+          uri: http://localhost:8089
+          predicates:
+            - Path=/api/v1/monitoring/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: monitoringCircuitBreaker
+
+        # Templates Service
+        - id: ms-templates
+          uri: http://localhost:8090
+          predicates:
+            - Path=/api/v1/templates/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: templatesCircuitBreaker
+
+        # ===========================================
+        # INSTANCE MICROSERVICES ROUTES
+        # ===========================================
+
+        # Referential Service
+        - id: ms-referential
+          uri: http://localhost:8086
+          predicates:
+            - Path=/api/v1/referential/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: referentialCircuitBreaker
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 200
+                redis-rate-limiter.burstCapacity: 500
+
+        # Procedure Service
+        - id: ms-procedure
+          uri: http://localhost:8087
+          predicates:
+            - Path=/api/v1/procedures/**, /api/v1/declarations/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: procedureCircuitBreaker
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+
+        # Document Service (GED)
+        - id: ms-document
+          uri: http://localhost:8091
+          predicates:
+            - Path=/api/v1/documents/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: documentCircuitBreaker
+            - RewritePath=/api/v1/documents/(?<segment>.*), /$\{segment}
+
+        # Workflow Service (Camunda/Zeebe)
+        - id: ms-workflow
+          uri: http://localhost:8092
+          predicates:
+            - Path=/api/v1/workflow/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: workflowCircuitBreaker
+
+        # Payment Service
+        - id: ms-payment
+          uri: http://localhost:8093
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: paymentCircuitBreaker
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 50
+
+        # Notification Service
+        - id: ms-notification
+          uri: http://localhost:8094
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: notificationCircuitBreaker
+
+        # Audit Service
+        - id: ms-audit
+          uri: http://localhost:8095
+          predicates:
+            - Path=/api/v1/audit/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: auditCircuitBreaker
+
+        # Admin Service
+        - id: ms-admin
+          uri: http://localhost:8096
+          predicates:
+            - Path=/api/v1/admin/**
+          filters:
+            - name: CircuitBreaker
+              args:
+                name: adminCircuitBreaker
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+
+# Resilience4j Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      tenantCircuitBreaker:
+        baseConfig: default
+      generatorCircuitBreaker:
+        baseConfig: default
+        waitDurationInOpenState: 30s
+      procedureCircuitBreaker:
+        baseConfig: default
+      referentialCircuitBreaker:
+        baseConfig: default
+        failureRateThreshold: 70
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 30s
+    instances:
+      generatorCircuitBreaker:
+        timeoutDuration: 120s
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging
+logging:
+  level:
+    cm.guce.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
+    reactor.netty.http.client: DEBUG
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  data:
+    redis:
+      host: redis
+      port: 6379
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/e-guce-hub
+          jwk-set-uri: http://keycloak:8080/realms/e-guce-hub/protocol/openid-connect/certs
+
+  cloud:
+    gateway:
+      routes:
+        - id: ms-tenant
+          uri: http://ms-tenant:8085
+          predicates:
+            - Path=/api/v1/tenants/**
+
+        - id: ms-generator
+          uri: http://ms-generator:8088
+          predicates:
+            - Path=/api/v1/generator/**
+
+        - id: ms-referential
+          uri: http://ms-referential:8086
+          predicates:
+            - Path=/api/v1/referential/**
+
+        - id: ms-procedure
+          uri: http://ms-procedure:8087
+          predicates:
+            - Path=/api/v1/procedures/**, /api/v1/declarations/**
+
+        - id: ms-document
+          uri: http://ms-document:8091
+          predicates:
+            - Path=/api/v1/documents/**
+
+        - id: ms-workflow
+          uri: http://ms-workflow:8092
+          predicates:
+            - Path=/api/v1/workflow/**
+
+        - id: ms-payment
+          uri: http://ms-payment:8093
+          predicates:
+            - Path=/api/v1/payments/**
+
+        - id: ms-notification
+          uri: http://ms-notification:8094
+          predicates:
+            - Path=/api/v1/notifications/**
+
+        - id: ms-audit
+          uri: http://ms-audit:8095
+          predicates:
+            - Path=/api/v1/audit/**
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+
+logging:
+  level:
+    cm.guce.gateway: INFO
+    org.springframework.cloud.gateway: WARN
+    org.springframework.security: WARN
