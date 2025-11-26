@@ -25,66 +25,138 @@
     "realm": [
       {
         "name": "SUPER_ADMIN",
-        "description": "Acces total au Hub - Toutes les fonctionnalites"
+        "description": "Super Administrateur - Acces total au Hub et tous les outils integres"
+      },
+      {
+        "name": "hub-admin",
+        "description": "Administrateur Hub - Acces a tous les outils d'administration"
+      },
+      {
+        "name": "hub-operator",
+        "description": "Operateur Hub - Acces aux operations courantes"
+      },
+      {
+        "name": "tenant-manager",
+        "description": "Gestionnaire de tenants - Creer et gerer les instances GUCE"
+      },
+      {
+        "name": "monitoring-viewer",
+        "description": "Visualiseur monitoring - Acces Grafana et Prometheus"
+      },
+      {
+        "name": "template-manager",
+        "description": "Gestionnaire de templates - Procedures, workflows, formulaires"
+      },
+      {
+        "name": "generator-operator",
+        "description": "Operateur generateur - Generer des instances GUCE"
+      },
+      {
+        "name": "billing-manager",
+        "description": "Gestionnaire facturation - Abonnements et paiements"
+      },
+      {
+        "name": "audit-viewer",
+        "description": "Visualiseur audit - Consulter les logs d'audit"
+      },
+      {
+        "name": "workflow-admin",
+        "description": "Administrateur workflow - Acces Camunda"
+      },
+      {
+        "name": "rules-admin",
+        "description": "Administrateur regles - Acces Drools"
+      },
+      {
+        "name": "log-viewer",
+        "description": "Visualiseur logs - Acces Kibana et Elasticsearch"
+      },
+      {
+        "name": "developer",
+        "description": "Developpeur - Acces Swagger, Jaeger"
       },
       {
         "name": "TENANT_MANAGER",
-        "description": "Creer et gerer les instances GUCE (tenants)"
+        "description": "[LEGACY] Gestionnaire de tenants"
       },
       {
         "name": "MONITORING_VIEWER",
-        "description": "Voir le monitoring et les metriques de toutes les instances"
+        "description": "[LEGACY] Visualiseur monitoring"
       },
       {
         "name": "TEMPLATE_MANAGER",
-        "description": "Gerer les templates de procedures, workflows, formulaires et regles"
+        "description": "[LEGACY] Gestionnaire de templates"
       },
       {
         "name": "GENERATOR_OPERATOR",
-        "description": "Operer le generateur de code et d'infrastructure"
+        "description": "[LEGACY] Operateur generateur"
       },
       {
         "name": "BILLING_MANAGER",
-        "description": "Gerer la facturation et les abonnements"
+        "description": "[LEGACY] Gestionnaire facturation"
       },
       {
         "name": "AUDIT_VIEWER",
-        "description": "Consulter les logs d'audit"
+        "description": "[LEGACY] Visualiseur audit"
       }
     ]
   },
   "groups": [
     {
+      "name": "SuperAdmins",
+      "path": "/SuperAdmins",
+      "realmRoles": [
+        "SUPER_ADMIN",
+        "hub-admin",
+        "hub-operator",
+        "tenant-manager",
+        "monitoring-viewer",
+        "template-manager",
+        "generator-operator",
+        "billing-manager",
+        "audit-viewer",
+        "workflow-admin",
+        "rules-admin",
+        "log-viewer",
+        "developer"
+      ]
+    },
+    {
       "name": "Administrators",
       "path": "/Administrators",
-      "realmRoles": ["SUPER_ADMIN"]
+      "realmRoles": ["hub-admin", "monitoring-viewer", "audit-viewer", "log-viewer"]
     },
     {
       "name": "TenantManagers",
       "path": "/TenantManagers",
-      "realmRoles": ["TENANT_MANAGER", "MONITORING_VIEWER"]
+      "realmRoles": ["tenant-manager", "monitoring-viewer", "generator-operator"]
     },
     {
       "name": "TemplateManagers",
       "path": "/TemplateManagers",
-      "realmRoles": ["TEMPLATE_MANAGER"]
+      "realmRoles": ["template-manager", "workflow-admin", "rules-admin"]
     },
     {
       "name": "MonitoringTeam",
       "path": "/MonitoringTeam",
-      "realmRoles": ["MONITORING_VIEWER"]
+      "realmRoles": ["monitoring-viewer", "log-viewer"]
     },
     {
       "name": "BillingTeam",
       "path": "/BillingTeam",
-      "realmRoles": ["BILLING_MANAGER"]
+      "realmRoles": ["billing-manager", "audit-viewer"]
+    },
+    {
+      "name": "Developers",
+      "path": "/Developers",
+      "realmRoles": ["developer", "log-viewer"]
     }
   ],
   "clients": [
     {
       "clientId": "e-guce-hub",
       "name": "E-GUCE 3G Generator Hub",
-      "description": "Interface unique du Hub - Acces a tous les modules (Tenant Builder, Generator Engine, Monitoring 360, Admin Central, Templates Library)",
+      "description": "Interface Unique du Hub - Acces a tous les modules et outils integres",
       "enabled": true,
       "publicClient": true,
       "rootUrl": "https://e-guce-hub.com",
@@ -95,20 +167,26 @@
       ],
       "webOrigins": [
         "http://localhost:4200",
-        "https://e-guce-hub.com"
+        "https://e-guce-hub.com",
+        "http://localhost:3000",
+        "http://localhost:5601",
+        "http://localhost:8081",
+        "http://localhost:8082",
+        "http://localhost:9090"
       ],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "roles"],
       "attributes": {
-        "post.logout.redirect.uris": "http://localhost:4200/*##https://e-guce-hub.com/*"
+        "post.logout.redirect.uris": "http://localhost:4200/*##https://e-guce-hub.com/*",
+        "pkce.code.challenge.method": "S256"
       }
     },
     {
       "clientId": "hub-api",
       "name": "Hub API Backend",
-      "description": "Client pour les APIs backend du Hub - Authentification service-to-service",
+      "description": "Client pour les APIs backend du Hub",
       "enabled": true,
       "publicClient": false,
       "secret": "hub-api-secret",
@@ -119,16 +197,52 @@
     {
       "clientId": "hub-instance-agent",
       "name": "Instance Agent",
-      "description": "Client pour les agents des instances GUCE qui communiquent avec le Hub (monitoring, sync, updates)",
+      "description": "Client pour les agents des instances GUCE",
       "enabled": true,
       "publicClient": false,
       "secret": "instance-agent-secret",
       "serviceAccountsEnabled": true,
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-tools-proxy",
+      "name": "Tools Proxy",
+      "description": "Client pour le proxy des outils integres (Grafana, Kibana, etc.)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "tools-proxy-secret",
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
   ],
   "users": [
+    {
+      "username": "superadmin",
+      "email": "superadmin@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "SuperAdmin@2024!", "temporary": false }],
+      "realmRoles": [
+        "SUPER_ADMIN",
+        "hub-admin",
+        "hub-operator",
+        "tenant-manager",
+        "monitoring-viewer",
+        "template-manager",
+        "generator-operator",
+        "billing-manager",
+        "audit-viewer",
+        "workflow-admin",
+        "rules-admin",
+        "log-viewer",
+        "developer"
+      ],
+      "groups": ["/SuperAdmins"]
+    },
     {
       "username": "hub-admin",
       "email": "admin@e-guce-hub.com",
@@ -137,7 +251,8 @@
       "firstName": "Hub",
       "lastName": "Administrator",
       "credentials": [{ "type": "password", "value": "hubadmin", "temporary": true }],
-      "realmRoles": ["SUPER_ADMIN"]
+      "realmRoles": ["hub-admin", "monitoring-viewer", "audit-viewer", "log-viewer"],
+      "groups": ["/Administrators"]
     },
     {
       "username": "tenant-manager",
@@ -147,7 +262,8 @@
       "firstName": "Tenant",
       "lastName": "Manager",
       "credentials": [{ "type": "password", "value": "tenant123", "temporary": true }],
-      "realmRoles": ["TENANT_MANAGER", "MONITORING_VIEWER"]
+      "realmRoles": ["tenant-manager", "monitoring-viewer", "generator-operator"],
+      "groups": ["/TenantManagers"]
     },
     {
       "username": "template-manager",
@@ -157,7 +273,8 @@
       "firstName": "Template",
       "lastName": "Manager",
       "credentials": [{ "type": "password", "value": "template123", "temporary": true }],
-      "realmRoles": ["TEMPLATE_MANAGER"]
+      "realmRoles": ["template-manager", "workflow-admin", "rules-admin"],
+      "groups": ["/TemplateManagers"]
     },
     {
       "username": "monitoring-viewer",
@@ -167,7 +284,19 @@
       "firstName": "Monitoring",
       "lastName": "Viewer",
       "credentials": [{ "type": "password", "value": "monitor123", "temporary": true }],
-      "realmRoles": ["MONITORING_VIEWER"]
+      "realmRoles": ["monitoring-viewer", "log-viewer"],
+      "groups": ["/MonitoringTeam"]
+    },
+    {
+      "username": "developer",
+      "email": "developer@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Dev",
+      "lastName": "User",
+      "credentials": [{ "type": "password", "value": "dev123", "temporary": true }],
+      "realmRoles": ["developer", "log-viewer"],
+      "groups": ["/Developers"]
     }
   ],
   "clientScopes": [
@@ -185,6 +314,39 @@
           "protocolMapper": "oidc-audience-mapper",
           "config": {
             "included.client.audience": "hub-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        },
+        {
+          "name": "realm-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "tools-scope",
+      "description": "Scope pour acceder aux outils integres",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "tools-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "hub-tools-proxy",
             "id.token.claim": "false",
             "access.token.claim": "true"
           }
