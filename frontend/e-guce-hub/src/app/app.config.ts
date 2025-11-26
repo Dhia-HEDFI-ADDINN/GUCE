@@ -6,11 +6,15 @@ import { KeycloakAngularModule, KeycloakService } from 'keycloak-angular';
 
 import { routes } from './app.routes';
 import { environment } from '@env/environment';
-import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { httpInterceptors } from './core/interceptors';
+import { AuthService } from './core/services/auth.service';
 
-function initializeKeycloak(keycloak: KeycloakService) {
-  return () =>
-    keycloak.init({
+/**
+ * Initialize Keycloak and Auth Service
+ */
+function initializeKeycloak(keycloak: KeycloakService, authService: AuthService) {
+  return async () => {
+    await keycloak.init({
       config: {
         url: environment.keycloak.url,
         realm: environment.keycloak.realm,
@@ -20,25 +24,29 @@ function initializeKeycloak(keycloak: KeycloakService) {
         onLoad: 'check-sso',
         silentCheckSsoRedirectUri:
           window.location.origin + '/assets/silent-check-sso.html',
-        checkLoginIframe: false
+        checkLoginIframe: false,
+        pkceMethod: 'S256' // PKCE for enhanced security
       },
-      enableBearerInterceptor: true,
-      bearerPrefix: 'Bearer',
+      enableBearerInterceptor: false, // We use custom interceptors
       bearerExcludedUrls: ['/assets']
     });
+
+    // Initialize auth service after Keycloak is ready
+    await authService.initialize();
+  };
 }
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes, withComponentInputBinding()),
     provideAnimations(),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors(httpInterceptors)),
     importProvidersFrom(KeycloakAngularModule),
     {
       provide: APP_INITIALIZER,
       useFactory: initializeKeycloak,
       multi: true,
-      deps: [KeycloakService]
+      deps: [KeycloakService, AuthService]
     }
   ]
 };
