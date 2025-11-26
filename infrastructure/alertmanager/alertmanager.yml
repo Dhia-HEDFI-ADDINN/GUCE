@@ -1,0 +1,153 @@
+# =============================================================================
+# E-GUCE 3G - Configuration AlertManager
+# =============================================================================
+# Configuration des notifications d'alertes pour le Hub et les instances.
+# =============================================================================
+
+global:
+  # Timeout pour les connexions SMTP
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@e-guce-hub.com'
+  smtp_auth_username: 'alertmanager'
+  smtp_auth_password: 'changeme'
+  smtp_require_tls: true
+
+  # Slack (optionnel)
+  slack_api_url: 'https://hooks.slack.com/services/XXXXX/XXXXX/XXXXX'
+
+# ===========================================
+# TEMPLATES
+# ===========================================
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# ===========================================
+# ROUTES
+# ===========================================
+route:
+  # Groupe par defaut
+  group_by: ['alertname', 'instance', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-receiver'
+
+  routes:
+    # Alertes critiques - notification immediate
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      group_wait: 10s
+      repeat_interval: 1h
+      continue: true
+
+    # Alertes warning - notification standard
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+      group_wait: 1m
+      repeat_interval: 4h
+
+    # Alertes info - notification legere
+    - match:
+        severity: info
+      receiver: 'info-receiver'
+      group_wait: 5m
+      repeat_interval: 12h
+
+    # Alertes base de donnees - equipe DBA
+    - match_re:
+        alertname: ^(Database.*)$
+      receiver: 'dba-receiver'
+      continue: true
+
+    # Alertes Keycloak/Securite - equipe securite
+    - match_re:
+        alertname: ^(Keycloak.*)$
+      receiver: 'security-receiver'
+      continue: true
+
+# ===========================================
+# RECEIVERS
+# ===========================================
+receivers:
+  # Receiver par defaut
+  - name: 'default-receiver'
+    email_configs:
+      - to: 'ops@e-guce-hub.com'
+        send_resolved: true
+
+  # Alertes critiques - tous les canaux
+  - name: 'critical-receiver'
+    email_configs:
+      - to: 'ops-critical@e-guce-hub.com, direction@e-guce-hub.com'
+        send_resolved: true
+    slack_configs:
+      - channel: '#guce-alerts-critical'
+        send_resolved: true
+        title: '{{ .Status | toUpper }} - {{ .CommonAnnotations.summary }}'
+        text: '{{ .CommonAnnotations.description }}'
+    # Webhook pour SMS/PagerDuty (a configurer)
+    # pagerduty_configs:
+    #   - service_key: 'your-service-key'
+    #     send_resolved: true
+
+  # Alertes warning
+  - name: 'warning-receiver'
+    email_configs:
+      - to: 'ops@e-guce-hub.com'
+        send_resolved: true
+    slack_configs:
+      - channel: '#guce-alerts'
+        send_resolved: true
+
+  # Alertes info
+  - name: 'info-receiver'
+    slack_configs:
+      - channel: '#guce-alerts-info'
+        send_resolved: false
+
+  # Equipe DBA
+  - name: 'dba-receiver'
+    email_configs:
+      - to: 'dba@e-guce-hub.com'
+        send_resolved: true
+
+  # Equipe securite
+  - name: 'security-receiver'
+    email_configs:
+      - to: 'security@e-guce-hub.com'
+        send_resolved: true
+
+# ===========================================
+# INHIBITIONS
+# ===========================================
+# Eviter les alertes redondantes
+inhibit_rules:
+  # Si une instance est DOWN, ne pas envoyer les alertes de services associees
+  - source_match:
+      alertname: 'InstanceDown'
+    target_match_re:
+      alertname: '.+'
+    equal: ['instance']
+
+  # Si le CPU est critique, ne pas envoyer les alertes de CPU warning
+  - source_match:
+      alertname: 'CriticalCPUUsage'
+    target_match:
+      alertname: 'HighCPUUsage'
+    equal: ['instance']
+
+  # Si la memoire est critique, ne pas envoyer les alertes de memoire warning
+  - source_match:
+      alertname: 'CriticalMemoryUsage'
+    target_match:
+      alertname: 'HighMemoryUsage'
+    equal: ['instance']
+
+  # Si l'espace disque est critique, ne pas envoyer les alertes de disque warning
+  - source_match:
+      alertname: 'DiskSpaceCritical'
+    target_match:
+      alertname: 'DiskSpaceLow'
+    equal: ['instance']

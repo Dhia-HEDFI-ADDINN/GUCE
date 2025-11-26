@@ -1,43 +1,208 @@
-# GUCE Platform - Configuration Prometheus
+# =============================================================================
+# E-GUCE 3G - Configuration Prometheus
+# =============================================================================
+# Configuration pour le monitoring 360 du Hub et des instances.
+#
+# En production:
+# - Hub: Prometheus central avec federation des instances
+# - Instances: Prometheus local qui pousse vers le Hub
+# =============================================================================
 
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+  # Labels externes pour identifier la source (Hub ou Instance)
+  external_labels:
+    monitor: 'guce-monitor'
+    # En production, chaque instance aura son propre label:
+    # instance_id: 'CM-GUCE-001'  # Pour l'instance Cameroun
+    # instance_id: 'HUB-001'      # Pour le Hub
+
+# ===========================================
+# FICHIERS D'ALERTES
+# ===========================================
+rule_files:
+  - '/etc/prometheus/alerts.yml'
+
+# ===========================================
+# CONFIGURATION ALERTMANAGER
+# ===========================================
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# ===========================================
+# SCRAPE CONFIGURATIONS
+# ===========================================
 scrape_configs:
+  # -----------------------------------------
   # Prometheus self-monitoring
+  # -----------------------------------------
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # GUCE Microservices
+  # -----------------------------------------
+  # GUCE Microservices (Backend Java)
+  # -----------------------------------------
+  # Ces endpoints exposent les metriques via Spring Boot Actuator
   - job_name: 'guce-microservices'
     metrics_path: '/actuator/prometheus'
     static_configs:
       - targets:
           - 'host.docker.internal:8081'  # ms-referential
-          - 'host.docker.internal:8082'  # ms-procedure
-          - 'host.docker.internal:8083'  # ms-document
-          - 'host.docker.internal:8084'  # ms-payment
-          - 'host.docker.internal:8085'  # ms-notification
-          - 'host.docker.internal:8086'  # ms-generator
+        labels:
+          service: 'ms-referential'
+          module: 'referential'
 
-  # Zeebe
+      - targets:
+          - 'host.docker.internal:8082'  # ms-procedure
+        labels:
+          service: 'ms-procedure'
+          module: 'procedure'
+
+      - targets:
+          - 'host.docker.internal:8083'  # ms-generator
+        labels:
+          service: 'ms-generator'
+          module: 'generator'
+
+      - targets:
+          - 'host.docker.internal:8084'  # ms-document
+        labels:
+          service: 'ms-document'
+          module: 'document'
+
+      - targets:
+          - 'host.docker.internal:8085'  # ms-payment
+        labels:
+          service: 'ms-payment'
+          module: 'payment'
+
+      - targets:
+          - 'host.docker.internal:8086'  # ms-notification
+        labels:
+          service: 'ms-notification'
+          module: 'notification'
+
+      - targets:
+          - 'host.docker.internal:8087'  # ms-audit
+        labels:
+          service: 'ms-audit'
+          module: 'audit'
+
+      - targets:
+          - 'host.docker.internal:8088'  # ms-reporting
+        labels:
+          service: 'ms-reporting'
+          module: 'reporting'
+
+  # -----------------------------------------
+  # Zeebe (Camunda 8 - Workflow Engine)
+  # -----------------------------------------
   - job_name: 'zeebe'
     static_configs:
       - targets: ['zeebe:9600']
+        labels:
+          component: 'workflow-engine'
 
+  # -----------------------------------------
+  # Keycloak (IAM)
+  # -----------------------------------------
+  - job_name: 'keycloak'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['keycloak:8080']
+        labels:
+          component: 'iam'
+
+  # -----------------------------------------
   # Kafka
+  # -----------------------------------------
   - job_name: 'kafka'
     static_configs:
       - targets: ['kafka:9092']
+        labels:
+          component: 'messaging'
 
+  # -----------------------------------------
   # Redis
+  # -----------------------------------------
   - job_name: 'redis'
     static_configs:
       - targets: ['redis:6379']
+        labels:
+          component: 'cache'
 
+  # -----------------------------------------
   # PostgreSQL
+  # -----------------------------------------
   - job_name: 'postgres'
     static_configs:
       - targets: ['postgres:5432']
+        labels:
+          component: 'database'
+
+  # -----------------------------------------
+  # MongoDB
+  # -----------------------------------------
+  - job_name: 'mongodb'
+    static_configs:
+      - targets: ['mongodb:27017']
+        labels:
+          component: 'nosql'
+
+  # -----------------------------------------
+  # MinIO (Stockage objets)
+  # -----------------------------------------
+  - job_name: 'minio'
+    metrics_path: '/minio/v2/metrics/cluster'
+    static_configs:
+      - targets: ['minio:9000']
+        labels:
+          component: 'storage'
+
+  # -----------------------------------------
+  # Elasticsearch
+  # -----------------------------------------
+  - job_name: 'elasticsearch'
+    metrics_path: '/_prometheus/metrics'
+    static_configs:
+      - targets: ['elasticsearch:9200']
+        labels:
+          component: 'search'
+
+  # -----------------------------------------
+  # Loki (Logs)
+  # -----------------------------------------
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+        labels:
+          component: 'logs'
+
+# ===========================================
+# FEDERATION (Pour le Hub uniquement)
+# ===========================================
+# En production, le Hub collecte les metriques de toutes les instances
+# via federation Prometheus. Decommenter pour activer.
+#
+#  - job_name: 'federate-instances'
+#    scrape_interval: 30s
+#    honor_labels: true
+#    metrics_path: '/federate'
+#    params:
+#      'match[]':
+#        - '{job="guce-microservices"}'
+#        - '{__name__=~"declaration.*"}'
+#        - '{__name__=~"http_server.*"}'
+#    static_configs:
+#      - targets:
+#          - 'prometheus-guce-cm.internal:9090'  # Instance Cameroun
+#          - 'prometheus-guce-td.internal:9090'  # Instance Tchad
+#          - 'prometheus-guce-cf.internal:9090'  # Instance RCA
+#        labels:
+#          federated: 'true'

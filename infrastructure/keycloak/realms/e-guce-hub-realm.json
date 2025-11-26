@@ -1,0 +1,213 @@
+{
+  "realm": "e-guce-hub",
+  "enabled": true,
+  "displayName": "E-GUCE 3G Generator Hub",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>E-GUCE 3G Generator Hub</span></div>",
+  "loginTheme": "keycloak",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      {
+        "name": "SUPER_ADMIN",
+        "description": "Acces total au Hub - Toutes les fonctionnalites"
+      },
+      {
+        "name": "TENANT_MANAGER",
+        "description": "Creer et gerer les instances GUCE (tenants)"
+      },
+      {
+        "name": "MONITORING_VIEWER",
+        "description": "Voir le monitoring et les metriques de toutes les instances"
+      },
+      {
+        "name": "TEMPLATE_MANAGER",
+        "description": "Gerer les templates de procedures, workflows, formulaires et regles"
+      },
+      {
+        "name": "GENERATOR_OPERATOR",
+        "description": "Operer le generateur de code et d'infrastructure"
+      },
+      {
+        "name": "BILLING_MANAGER",
+        "description": "Gerer la facturation et les abonnements"
+      },
+      {
+        "name": "AUDIT_VIEWER",
+        "description": "Consulter les logs d'audit"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "name": "Administrators",
+      "path": "/Administrators",
+      "realmRoles": ["SUPER_ADMIN"]
+    },
+    {
+      "name": "TenantManagers",
+      "path": "/TenantManagers",
+      "realmRoles": ["TENANT_MANAGER", "MONITORING_VIEWER"]
+    },
+    {
+      "name": "TemplateManagers",
+      "path": "/TemplateManagers",
+      "realmRoles": ["TEMPLATE_MANAGER"]
+    },
+    {
+      "name": "MonitoringTeam",
+      "path": "/MonitoringTeam",
+      "realmRoles": ["MONITORING_VIEWER"]
+    },
+    {
+      "name": "BillingTeam",
+      "path": "/BillingTeam",
+      "realmRoles": ["BILLING_MANAGER"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "hub-tenant-builder",
+      "name": "Tenant Builder",
+      "description": "Module de creation et gestion des instances GUCE",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4300/*", "https://e-guce-hub.com/*"],
+      "webOrigins": ["http://localhost:4300", "https://e-guce-hub.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-generator",
+      "name": "Generator Engine",
+      "description": "Module de generation de code et d'infrastructure",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4301/*", "https://e-guce-hub.com/*"],
+      "webOrigins": ["http://localhost:4301", "https://e-guce-hub.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-monitoring",
+      "name": "Monitoring 360",
+      "description": "Module de supervision de toutes les instances",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4302/*", "https://e-guce-hub.com/*"],
+      "webOrigins": ["http://localhost:4302", "https://e-guce-hub.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-admin",
+      "name": "Administration Centrale",
+      "description": "Console d'administration du Hub",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4303/*", "https://e-guce-hub.com/*"],
+      "webOrigins": ["http://localhost:4303", "https://e-guce-hub.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-templates",
+      "name": "Templates Library",
+      "description": "Bibliotheque de templates",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4304/*", "https://e-guce-hub.com/*"],
+      "webOrigins": ["http://localhost:4304", "https://e-guce-hub.com"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-api",
+      "name": "Hub API",
+      "description": "Client pour les APIs backend du Hub",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "hub-api-secret",
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "users": [
+    {
+      "username": "hub-admin",
+      "email": "admin@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Hub",
+      "lastName": "Administrator",
+      "credentials": [{ "type": "password", "value": "hubadmin", "temporary": true }],
+      "realmRoles": ["SUPER_ADMIN"]
+    },
+    {
+      "username": "tenant-manager",
+      "email": "tenant-manager@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Tenant",
+      "lastName": "Manager",
+      "credentials": [{ "type": "password", "value": "tenant123", "temporary": true }],
+      "realmRoles": ["TENANT_MANAGER", "MONITORING_VIEWER"]
+    },
+    {
+      "username": "template-manager",
+      "email": "template-manager@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Template",
+      "lastName": "Manager",
+      "credentials": [{ "type": "password", "value": "template123", "temporary": true }],
+      "realmRoles": ["TEMPLATE_MANAGER"]
+    },
+    {
+      "username": "monitoring-viewer",
+      "email": "monitoring@e-guce-hub.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Monitoring",
+      "lastName": "Viewer",
+      "credentials": [{ "type": "password", "value": "monitor123", "temporary": true }],
+      "realmRoles": ["MONITORING_VIEWER"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "tenant-scope",
+      "description": "Scope pour acceder aux fonctionnalites tenant",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
+    }
+  ]
+}
