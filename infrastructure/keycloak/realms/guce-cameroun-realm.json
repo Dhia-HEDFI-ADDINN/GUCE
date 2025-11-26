@@ -191,87 +191,35 @@
   ],
   "clients": [
     {
-      "clientId": "e-force",
-      "name": "e-FORCE - Portail Operateurs",
-      "description": "Portail web pour les operateurs economiques (declarations, documents, paiements, suivi)",
+      "clientId": "guce-cameroun",
+      "name": "GUCE Cameroun - Interface Unique",
+      "description": "Interface unique de l'instance GUCE Cameroun - Acces a tous les modules (e-Force, e-Gov, e-Business, e-Payment, Procedure Builder, Admin Local) via navigation interne selon les roles de l'utilisateur",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4200/*", "https://guce-cameroun.com/e-force/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4200", "https://guce-cameroun.com", "https://*.guce.cm"],
+      "rootUrl": "https://guce-cameroun.com",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "https://guce-cameroun.com/*",
+        "https://*.guce.cm/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200",
+        "https://guce-cameroun.com",
+        "https://*.guce.cm"
+      ],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "e-gov",
-      "name": "e-GOV - Portail Administrations",
-      "description": "Interface de traitement pour les administrations publiques (corbeille, traitement, decisions, statistiques)",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4201/*", "https://guce-cameroun.com/e-gov/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4201", "https://guce-cameroun.com", "https://*.guce.cm"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "e-business",
-      "name": "e-BUSINESS - Portail Intermediaires",
-      "description": "Portail pour les intermediaires agrees (banques, SGS, etc.)",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4202/*", "https://guce-cameroun.com/e-business/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4202", "https://guce-cameroun.com", "https://*.guce.cm"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "e-payment",
-      "name": "e-PAYMENT - Module Paiement",
-      "description": "Module de paiement en ligne (mobile money, carte, virement)",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4204/*", "https://guce-cameroun.com/e-payment/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4204", "https://guce-cameroun.com", "https://*.guce.cm"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "procedure-builder",
-      "name": "Procedure Builder - Configuration",
-      "description": "Module de configuration des procedures (workflow designer, form builder, data modeler, rules editor)",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4205/*", "https://guce-cameroun.com/config/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4205", "https://guce-cameroun.com", "https://*.guce.cm"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "guce-admin",
-      "name": "Console d'administration locale GUCE",
-      "description": "Console d'administration de l'instance (utilisateurs, roles, organisations, audit, parametres)",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4203/*", "https://guce-cameroun.com/admin/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4203", "https://guce-cameroun.com", "https://*.guce.cm"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:4200/*##https://guce-cameroun.com/*"
+      }
     },
     {
       "clientId": "guce-api",
       "name": "API GUCE Instance",
-      "description": "Client pour les APIs backend de l'instance",
+      "description": "Client pour les APIs backend de l'instance - Tous les microservices",
       "enabled": true,
       "publicClient": false,
       "secret": "guce-api-secret",
@@ -282,7 +230,7 @@
     {
       "clientId": "hub-agent",
       "name": "Agent Hub",
-      "description": "Client pour la communication avec le Hub (monitoring, updates, templates)",
+      "description": "Client pour la communication avec le Hub E-GUCE 3G (monitoring, updates, templates sync)",
       "enabled": true,
       "publicClient": false,
       "secret": "hub-agent-secret",

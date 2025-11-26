@@ -406,6 +406,46 @@ Le Tenant Builder execute automatiquement :
   - Reception des mises a jour
   - Synchronisation des templates
 
+### Interface Unique de l'Instance
+
+**IMPORTANT**: Chaque instance GUCE dispose d'une **INTERFACE UNIQUE** accessible via une seule URL.
+
+```
++-----------------------------------------------------------------------------------+
+|                    INSTANCE GUCE CAMEROUN - INTERFACE UNIQUE                      |
+|                         https://guce-cameroun.com                                 |
++-----------------------------------------------------------------------------------+
+|                                                                                   |
+|  +---------------------------+  Une seule application frontend Angular           |
+|  |     APPLICATION WEB      |  qui integre TOUS les modules :                    |
+|  |       UNIFIEE            |                                                    |
+|  |                          |  - /e-force/*     -> e-Force (Operateurs)          |
+|  |  Client Keycloak:        |  - /e-gov/*       -> e-Gov (Administrations)       |
+|  |  "guce-cameroun"         |  - /e-business/*  -> e-Business (Intermediaires)   |
+|  |                          |  - /e-payment/*   -> e-Payment (Paiements)         |
+|  +---------------------------+  - /config/*      -> Procedure Builder            |
+|              |                  - /admin/*       -> Administration Locale        |
+|              v                                                                    |
+|  +---------------------------+                                                    |
+|  |     APIs BACKEND         |  Client Keycloak: "guce-api"                        |
+|  |     /api/v1/*            |  Bearer Token authentication                       |
+|  +---------------------------+                                                    |
+|                                                                                   |
++-----------------------------------------------------------------------------------+
+```
+
+**Caracteristiques de l'interface unique:**
+- **Une seule URL** : https://guce-{pays}.com (ex: https://guce-cameroun.com)
+- **Un seul client Keycloak** : `guce-{pays}` pour le frontend (ex: `guce-cameroun`)
+- **Navigation interne** : Tous les portails/modules accessibles via le menu lateral
+- **Authentification unique** : Une seule connexion pour acceder a tous les modules
+- **Autorisation par roles** : Les menus sont filtres selon les roles de l'utilisateur
+  - Role `OPERATEUR_ECONOMIQUE` -> acces e-Force
+  - Role `AGENT_ADMINISTRATION` -> acces e-Gov
+  - Role `INTERMEDIAIRE_AGREE` -> acces e-Business
+  - Role `ADMIN_FONCTIONNEL` -> acces Procedure Builder
+  - Role `SUPER_ADMIN_INSTANCE` -> acces Administration + tous les modules
+
 ### Schema d'une Instance
 
 ```
