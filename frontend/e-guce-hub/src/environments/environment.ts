@@ -89,5 +89,121 @@ export const environment = {
     marketplace: true,
     multiRegion: false,
     advancedAnalytics: false
+  },
+
+  // ================================================
+  // INTEGRATED TOOLS - Interface Unique
+  // All tools accessible through the Hub single URL
+  // ================================================
+  tools: {
+    // Grafana - Monitoring & Dashboards
+    grafana: {
+      enabled: true,
+      url: 'http://localhost:3000',
+      embedPath: '/d-solo',                    // For embedded dashboards
+      proxyPath: '/tools/grafana',             // Proxied through gateway
+      defaultDashboard: 'hub-overview',
+      dashboards: {
+        overview: 'hub-overview',
+        tenants: 'hub-tenants',
+        performance: 'hub-performance',
+        alerts: 'hub-alerts'
+      }
+    },
+
+    // Kibana - Logs & Analytics
+    kibana: {
+      enabled: true,
+      url: 'http://localhost:5601',
+      proxyPath: '/tools/kibana',
+      defaultIndex: 'hub-logs-*',
+      indexes: {
+        hubLogs: 'hub-logs-*',
+        auditLogs: 'audit-logs-*',
+        securityLogs: 'security-logs-*',
+        tenantLogs: 'tenant-logs-*'
+      }
+    },
+
+    // Elasticsearch - Search & Analytics API
+    elasticsearch: {
+      enabled: true,
+      url: 'http://localhost:9200',
+      proxyPath: '/tools/elasticsearch'
+    },
+
+    // Keycloak Admin Console
+    keycloakAdmin: {
+      enabled: true,
+      url: 'http://localhost:8180/admin',
+      proxyPath: '/tools/keycloak-admin',
+      realm: 'e-guce-hub'
+    },
+
+    // Generator Configurator UI
+    configurator: {
+      enabled: true,
+      proxyPath: '/tools/configurator',
+      wizardSteps: [
+        'instance-info',
+        'modules-selection',
+        'branding',
+        'integrations',
+        'security',
+        'review'
+      ]
+    },
+
+    // Camunda Hub (for Hub workflows if any)
+    camunda: {
+      enabled: true,
+      url: 'http://localhost:8083',
+      proxyPath: '/tools/camunda',
+      cockpitPath: '/camunda/app/cockpit',
+      tasklistPath: '/camunda/app/tasklist',
+      adminPath: '/camunda/app/admin'
+    },
+
+    // Drools Hub (for Hub business rules)
+    drools: {
+      enabled: true,
+      url: 'http://localhost:8084',
+      proxyPath: '/tools/drools',
+      workbenchPath: '/business-central'
+    },
+
+    // Prometheus (metrics)
+    prometheus: {
+      enabled: true,
+      url: 'http://localhost:9090',
+      proxyPath: '/tools/prometheus'
+    },
+
+    // Jaeger (tracing)
+    jaeger: {
+      enabled: true,
+      url: 'http://localhost:16686',
+      proxyPath: '/tools/jaeger'
+    },
+
+    // Swagger/OpenAPI Documentation
+    swagger: {
+      enabled: true,
+      url: 'http://localhost:8080/swagger-ui.html',
+      proxyPath: '/tools/api-docs'
+    }
+  },
+
+  // Tool Access Roles
+  toolsAccess: {
+    grafana: ['hub-admin', 'hub-operator', 'monitoring-viewer'],
+    kibana: ['hub-admin', 'log-viewer'],
+    keycloakAdmin: ['hub-admin'],
+    configurator: ['hub-admin', 'generator-operator'],
+    camunda: ['hub-admin', 'workflow-admin'],
+    drools: ['hub-admin', 'rules-admin'],
+    prometheus: ['hub-admin', 'monitoring-viewer'],
+    jaeger: ['hub-admin', 'developer'],
+    swagger: ['hub-admin', 'developer']
   }
 };

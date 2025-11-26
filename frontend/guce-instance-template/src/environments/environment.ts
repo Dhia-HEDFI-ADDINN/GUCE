@@ -165,5 +165,191 @@ export const environment = {
     reports: true,
     mobileApp: false,
     offlineMode: false
+  },
+
+  // ================================================
+  // INTEGRATED TOOLS - Interface Unique
+  // All tools accessible through the Instance single URL
+  // ================================================
+  tools: {
+    // Camunda - Workflow Engine (BPM)
+    camunda: {
+      enabled: true,
+      url: 'http://localhost:8083',
+      proxyPath: '/tools/camunda',
+      // Camunda Web Apps embedded in Instance
+      cockpit: {
+        enabled: true,
+        path: '/camunda/app/cockpit',
+        proxyPath: '/tools/camunda/cockpit'
+      },
+      tasklist: {
+        enabled: true,
+        path: '/camunda/app/tasklist',
+        proxyPath: '/tools/camunda/tasklist'
+      },
+      admin: {
+        enabled: true,
+        path: '/camunda/app/admin',
+        proxyPath: '/tools/camunda/admin'
+      },
+      // REST API for workflow integration
+      restApi: '/engine-rest'
+    },
+
+    // Drools - Business Rules Engine
+    drools: {
+      enabled: true,
+      url: 'http://localhost:8084',
+      proxyPath: '/tools/drools',
+      // Drools Workbench (Business Central)
+      workbench: {
+        enabled: true,
+        path: '/business-central',
+        proxyPath: '/tools/drools/workbench'
+      },
+      // KIE Server REST API
+      kieServer: {
+        url: 'http://localhost:8085',
+        path: '/kie-server/services/rest',
+        proxyPath: '/tools/kie-server'
+      },
+      // Rule containers
+      containers: {
+        procedures: '{{INSTANCE_CODE}}-procedures',
+        validations: '{{INSTANCE_CODE}}-validations',
+        fees: '{{INSTANCE_CODE}}-fees',
+        routing: '{{INSTANCE_CODE}}-routing'
+      }
+    },
+
+    // Grafana - Monitoring & Dashboards
+    grafana: {
+      enabled: true,
+      url: 'http://localhost:3000',
+      proxyPath: '/tools/grafana',
+      embedPath: '/d-solo',
+      defaultDashboard: 'instance-overview',
+      dashboards: {
+        overview: 'instance-overview',
+        declarations: 'declarations-stats',
+        workflow: 'workflow-performance',
+        payments: 'payments-dashboard',
+        sla: 'sla-compliance'
+      }
+    },
+
+    // Kibana - Logs & Analytics
+    kibana: {
+      enabled: true,
+      url: 'http://localhost:5601',
+      proxyPath: '/tools/kibana',
+      defaultIndex: '{{INSTANCE_CODE}}-logs-*',
+      indexes: {
+        applicationLogs: '{{INSTANCE_CODE}}-logs-*',
+        auditLogs: '{{INSTANCE_CODE}}-audit-*',
+        accessLogs: '{{INSTANCE_CODE}}-access-*',
+        workflowLogs: '{{INSTANCE_CODE}}-workflow-*'
+      }
+    },
+
+    // Elasticsearch - Search & Analytics API
+    elasticsearch: {
+      enabled: true,
+      url: 'http://localhost:9200',
+      proxyPath: '/tools/elasticsearch'
+    },
+
+    // Keycloak Admin Console
+    keycloakAdmin: {
+      enabled: true,
+      url: 'http://localhost:8180/admin',
+      proxyPath: '/tools/keycloak-admin',
+      realm: '{{KEYCLOAK_REALM}}'
+    },
+
+    // Prometheus (metrics)
+    prometheus: {
+      enabled: true,
+      url: 'http://localhost:9090',
+      proxyPath: '/tools/prometheus'
+    },
+
+    // Jaeger (tracing)
+    jaeger: {
+      enabled: true,
+      url: 'http://localhost:16686',
+      proxyPath: '/tools/jaeger'
+    },
+
+    // Swagger/OpenAPI Documentation
+    swagger: {
+      enabled: true,
+      url: 'http://localhost:8081/swagger-ui.html',
+      proxyPath: '/tools/api-docs'
+    },
+
+    // Document Preview/Editor
+    documentViewer: {
+      enabled: true,
+      supportedFormats: ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg'],
+      maxFileSize: 50 * 1024 * 1024  // 50MB
+    },
+
+    // Report Generator
+    reportGenerator: {
+      enabled: true,
+      proxyPath: '/tools/reports',
+      formats: ['pdf', 'xlsx', 'csv', 'html']
+    }
+  },
+
+  // Tool Access Roles
+  toolsAccess: {
+    // Camunda access by user type
+    camundaCockpit: ['instance-admin', 'supervisor'],
+    camundaTasklist: ['agent', 'supervisor', 'instance-admin'],
+    camundaAdmin: ['instance-admin'],
+    // Drools access
+    droolsWorkbench: ['instance-admin', 'rules-admin'],
+    // Monitoring tools
+    grafana: ['instance-admin', 'supervisor', 'monitoring-viewer'],
+    kibana: ['instance-admin', 'log-viewer'],
+    keycloakAdmin: ['instance-admin'],
+    prometheus: ['instance-admin'],
+    jaeger: ['instance-admin', 'developer'],
+    swagger: ['instance-admin', 'developer'],
+    // Document tools
+    documentViewer: ['operator', 'agent', 'supervisor', 'instance-admin'],
+    reportGenerator: ['supervisor', 'instance-admin']
+  },
+
+  // Procedure Builder Tools Configuration
+  procedureBuilder: {
+    // BPMN Modeler (embedded Camunda Modeler)
+    bpmnModeler: {
+      enabled: true,
+      proxyPath: '/tools/bpmn-modeler'
+    },
+    // DMN Decision Tables Editor
+    dmnEditor: {
+      enabled: true,
+      proxyPath: '/tools/dmn-editor'
+    },
+    // Form Builder
+    formBuilder: {
+      enabled: true,
+      proxyPath: '/tools/form-builder',
+      fieldTypes: [
+        'text', 'textarea', 'number', 'date', 'datetime',
+        'select', 'multiselect', 'checkbox', 'radio',
+        'file', 'signature', 'location', 'niu-lookup'
+      ]
+    },
+    // Fee Calculator Designer
+    feeCalculator: {
+      enabled: true,
+      proxyPath: '/tools/fee-calculator'
+    }
   }
 };
