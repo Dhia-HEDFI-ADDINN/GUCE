@@ -1,0 +1,17 @@
+# =============================================================================
+# E-GUCE 3G - Grafana Dashboard Provider Configuration
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'E-GUCE 3G Dashboards'
+    orgId: 1
+    folder: 'E-GUCE 3G'
+    folderUid: 'eguce3g'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/json
