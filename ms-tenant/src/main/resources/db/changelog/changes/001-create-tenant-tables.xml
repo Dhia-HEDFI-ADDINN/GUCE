@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Table: tenant -->
+    <changeSet id="001-01" author="guce">
+        <createTable tableName="tenant">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="varchar(10)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="short_name" type="varchar(50)"/>
+            <column name="domain" type="varchar(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="country" type="varchar(3)"/>
+            <column name="logo_url" type="varchar(500)"/>
+            <column name="primary_color" type="varchar(7)"/>
+            <column name="secondary_color" type="varchar(7)"/>
+            <column name="timezone" type="varchar(50)"/>
+            <column name="locale" type="varchar(10)"/>
+            <column name="currency" type="varchar(3)"/>
+            <column name="status" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="environment" type="varchar(20)"/>
+
+            <!-- Technical config -->
+            <column name="high_availability" type="boolean" defaultValueBoolean="false"/>
+            <column name="auto_scaling_enabled" type="boolean" defaultValueBoolean="false"/>
+            <column name="min_replicas" type="int" defaultValueNumeric="1"/>
+            <column name="max_replicas" type="int" defaultValueNumeric="3"/>
+            <column name="backup_enabled" type="boolean" defaultValueBoolean="true"/>
+            <column name="backup_frequency" type="varchar(20)"/>
+            <column name="backup_retention_days" type="int" defaultValueNumeric="30"/>
+
+            <!-- Infrastructure (embedded) -->
+            <column name="cloud_provider" type="varchar(20)"/>
+            <column name="region" type="varchar(50)"/>
+            <column name="kubernetes_version" type="varchar(10)"/>
+            <column name="kubernetes_namespace" type="varchar(100)"/>
+            <column name="machine_type" type="varchar(50)"/>
+            <column name="node_count" type="int"/>
+            <column name="database_type" type="varchar(20)"/>
+            <column name="database_size" type="varchar(50)"/>
+            <column name="storage_size_gb" type="int"/>
+            <column name="cpu_request" type="varchar(20)"/>
+            <column name="cpu_limit" type="varchar(20)"/>
+            <column name="memory_request" type="varchar(20)"/>
+            <column name="memory_limit" type="varchar(20)"/>
+
+            <!-- Deployed resources -->
+            <column name="keycloak_realm_id" type="varchar(100)"/>
+            <column name="database_name" type="varchar(100)"/>
+            <column name="database_host" type="varchar(255)"/>
+            <column name="database_port" type="int"/>
+            <column name="frontend_url" type="varchar(500)"/>
+            <column name="backend_url" type="varchar(500)"/>
+            <column name="gateway_url" type="varchar(500)"/>
+
+            <!-- Health metrics -->
+            <column name="last_health_check" type="timestamp"/>
+            <column name="health_status" type="varchar(20)"/>
+            <column name="uptime_percentage" type="decimal(5,2)"/>
+            <column name="active_users" type="int" defaultValueNumeric="0"/>
+            <column name="total_transactions" type="bigint" defaultValueNumeric="0"/>
+
+            <!-- Audit -->
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp"/>
+            <column name="created_by" type="varchar(100)"/>
+            <column name="deployed_at" type="timestamp"/>
+            <column name="deployed_by" type="varchar(100)"/>
+            <column name="stopped_at" type="timestamp"/>
+            <column name="deployment_error" type="text"/>
+        </createTable>
+
+        <createIndex tableName="tenant" indexName="idx_tenant_code">
+            <column name="code"/>
+        </createIndex>
+        <createIndex tableName="tenant" indexName="idx_tenant_domain">
+            <column name="domain"/>
+        </createIndex>
+        <createIndex tableName="tenant" indexName="idx_tenant_status">
+            <column name="status"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Table: tenant_module -->
+    <changeSet id="001-02" author="guce">
+        <createTable tableName="tenant_module">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(100)"/>
+            <column name="description" type="varchar(500)"/>
+            <column name="enabled" type="boolean" defaultValueBoolean="true"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="tenant_module"
+            baseColumnNames="tenant_id"
+            constraintName="fk_module_tenant"
+            referencedTableName="tenant"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <createIndex tableName="tenant_module" indexName="idx_module_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- Table: tenant_module_features -->
+    <changeSet id="001-03" author="guce">
+        <createTable tableName="tenant_module_features">
+            <column name="module_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="feature_name" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="feature_enabled" type="boolean" defaultValueBoolean="false"/>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="tenant_module_features"
+            columnNames="module_id, feature_name"
+            constraintName="pk_module_features"/>
+
+        <addForeignKeyConstraint
+            baseTableName="tenant_module_features"
+            baseColumnNames="module_id"
+            constraintName="fk_features_module"
+            referencedTableName="tenant_module"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+    <!-- Table: tenant_module_config -->
+    <changeSet id="001-04" author="guce">
+        <createTable tableName="tenant_module_config">
+            <column name="module_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="config_key" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="config_value" type="varchar(500)"/>
+        </createTable>
+
+        <addPrimaryKey
+            tableName="tenant_module_config"
+            columnNames="module_id, config_key"
+            constraintName="pk_module_config"/>
+
+        <addForeignKeyConstraint
+            baseTableName="tenant_module_config"
+            baseColumnNames="module_id"
+            constraintName="fk_config_module"
+            referencedTableName="tenant_module"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+    <!-- Table: tenant_admin -->
+    <changeSet id="001-05" author="guce">
+        <createTable tableName="tenant_admin">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="tenant_id" type="uuid">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="first_name" type="varchar(100)"/>
+            <column name="last_name" type="varchar(100)"/>
+            <column name="role" type="varchar(30)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="keycloak_user_id" type="varchar(100)"/>
+            <column name="is_created" type="boolean" defaultValueBoolean="false"/>
+        </createTable>
+
+        <addForeignKeyConstraint
+            baseTableName="tenant_admin"
+            baseColumnNames="tenant_id"
+            constraintName="fk_admin_tenant"
+            referencedTableName="tenant"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <createIndex tableName="tenant_admin" indexName="idx_admin_tenant">
+            <column name="tenant_id"/>
+        </createIndex>
+        <createIndex tableName="tenant_admin" indexName="idx_admin_email">
+            <column name="email"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -405,6 +405,107 @@ services:
       - guce-network
 
 # ===========================================
+# MICROSERVICES BACKEND
+# ===========================================
+
+  # MS-Tenant: Gestion des tenants/instances GUCE
+  ms-tenant:
+    build:
+      context: ./ms-tenant
+      dockerfile: Dockerfile
+    image: guce/ms-tenant:latest
+    container_name: guce-ms-tenant
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/guce_hub
+      SPRING_DATASOURCE_USERNAME: guce_admin
+      SPRING_DATASOURCE_PASSWORD: guce_secret
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KEYCLOAK_AUTH_SERVER_URL: http://keycloak:8080
+      KEYCLOAK_ADMIN_USERNAME: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      DEPLOYMENT_MODE: docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - guce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MS-Procedure: Gestion des procedures
+  ms-procedure:
+    build:
+      context: ./ms-procedure
+      dockerfile: Dockerfile
+    image: guce/ms-procedure:latest
+    container_name: guce-ms-procedure
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/guce
+      SPRING_DATASOURCE_USERNAME: guce
+      SPRING_DATASOURCE_PASSWORD: guce
+      ZEEBE_CLIENT_BROKER_GATEWAY_ADDRESS: zeebe:26500
+    depends_on:
+      postgres:
+        condition: service_healthy
+      zeebe:
+        condition: service_started
+    networks:
+      - guce-network
+
+  # MS-Generator: Generation de code/procedures
+  ms-generator:
+    build:
+      context: ./ms-generator
+      dockerfile: Dockerfile
+    image: guce/ms-generator:latest
+    container_name: guce-ms-generator
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/guce
+      SPRING_DATASOURCE_USERNAME: guce
+      SPRING_DATASOURCE_PASSWORD: guce
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guce-network
+
+  # MS-Referential: Referentiels et donnees de base
+  ms-referential:
+    build:
+      context: ./ms-referential
+      dockerfile: Dockerfile
+    image: guce/ms-referential:latest
+    container_name: guce-ms-referential
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/guce
+      SPRING_DATASOURCE_USERNAME: guce
+      SPRING_DATASOURCE_PASSWORD: guce
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guce-network
+
+# ===========================================
 # VOLUMES
 # ===========================================
 
