@@ -1,12 +1,36 @@
 version: '3.8'
 
-# GUCE Platform - Docker Compose pour environnement de développement local
-# e-GUCE 3G - Guichet Unique du Commerce Extérieur
+# =============================================================================
+# E-GUCE 3G - Docker Compose pour environnement de developpement local
+# =============================================================================
+#
+# ARCHITECTURE GLOBALE:
+# --------------------
+# Ce fichier configure l'infrastructure pour DEUX types de systemes:
+#
+# 1. E-GUCE 3G GENERATOR HUB (Multi-Tenant)
+#    - URL: https://e-guce-hub.com
+#    - Keycloak Realm: e-guce-hub
+#    - Role: Plateforme centrale de generation et monitoring des instances
+#
+# 2. INSTANCES GUCE (Single-Tenant)
+#    - URL: https://guce-{pays}.com (ex: https://guce-cameroun.com)
+#    - Keycloak Realm: guce-cameroun (un realm par instance)
+#    - Role: Instances autonomes deployees separement
+#
+# En developpement local, tous les services tournent ensemble.
+# En production, chaque instance a sa propre infrastructure.
+#
+# =============================================================================
 
 services:
 
   # ===========================================
-  # Base de données
+  # BASE DE DONNEES PRINCIPALE
+  # ===========================================
+  # En production:
+  # - Hub: Base de donnees partagee multi-tenant
+  # - Instances: Chaque instance a sa propre DB dediee
   # ===========================================
 
   postgres:
@@ -30,7 +54,12 @@ services:
       retries: 5
 
   # ===========================================
-  # Redis (Cache et Sessions)
+  # REDIS (Cache et Sessions)
+  # ===========================================
+  # Utilise pour:
+  # - Cache des referentiels
+  # - Sessions utilisateurs
+  # - Rate limiting
   # ===========================================
 
   redis:
@@ -49,7 +78,12 @@ services:
       retries: 5
 
   # ===========================================
-  # MongoDB (Documents et Logs)
+  # MONGODB (Documents et Logs)
+  # ===========================================
+  # Utilise pour:
+  # - Stockage des documents JSON complexes
+  # - Historique des configurations
+  # - Logs structures
   # ===========================================
 
   mongodb:
@@ -71,7 +105,12 @@ services:
       retries: 5
 
   # ===========================================
-  # Kafka (Event Streaming)
+  # KAFKA (Event Streaming)
+  # ===========================================
+  # Utilise pour:
+  # - Communication asynchrone entre microservices
+  # - Events de workflow (Camunda)
+  # - Communication Hub <-> Instances (metriques, logs)
   # ===========================================
 
   zookeeper:
@@ -118,7 +157,12 @@ services:
       - guce-network
 
   # ===========================================
-  # Camunda 8 / Zeebe (Workflow Engine)
+  # CAMUNDA 8 / ZEEBE (Workflow Engine)
+  # ===========================================
+  # Moteur BPMN pour:
+  # - Workflow des procedures (declarations, certificats)
+  # - Orchestration des taches
+  # - Gestion des processus metier
   # ===========================================
 
   zeebe:
@@ -169,7 +213,12 @@ services:
       - guce-network
 
   # ===========================================
-  # Elasticsearch (Search & Analytics)
+  # ELASTICSEARCH (Search & Analytics)
+  # ===========================================
+  # Utilise pour:
+  # - Recherche full-text sur les declarations
+  # - Indexation des documents
+  # - Analytics Camunda
   # ===========================================
 
   elasticsearch:
@@ -193,7 +242,15 @@ services:
       retries: 5
 
   # ===========================================
-  # Keycloak (IAM)
+  # KEYCLOAK (IAM - Identity Access Management)
+  # ===========================================
+  # Configuration Multi-Realm:
+  # - Realm "e-guce-hub": Utilisateurs du Hub (admins, tenant managers)
+  # - Realm "guce-cameroun": Utilisateurs de l'instance Cameroun
+  # - Autres realms pour chaque instance pays
+  #
+  # Les realms sont importes automatiquement depuis:
+  # ./infrastructure/keycloak/realms/
   # ===========================================
 
   keycloak:
@@ -218,7 +275,12 @@ services:
       - guce-network
 
   # ===========================================
-  # MinIO (Stockage Objet S3)
+  # MINIO (Stockage Objet S3 - GED)
+  # ===========================================
+  # Utilise pour:
+  # - Stockage des documents (PDF, images)
+  # - GED (Gestion Electronique des Documents)
+  # - Archivage des declarations
   # ===========================================
 
   minio:
@@ -242,7 +304,15 @@ services:
       retries: 5
 
   # ===========================================
-  # Monitoring
+  # MONITORING 360 - PROMETHEUS
+  # ===========================================
+  # Sur le Hub:
+  # - Aggregation des metriques de toutes les instances
+  # - Federation Prometheus pour collecte centralisee
+  #
+  # Sur chaque Instance:
+  # - Prometheus local pour metriques
+  # - Agent qui pousse vers le Hub
   # ===========================================
 
   prometheus:
@@ -252,12 +322,44 @@ services:
       - "9090:9090"
     volumes:
       - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./infrastructure/prometheus/alerts.yml:/etc/prometheus/alerts.yml
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
     networks:
       - guce-network
+
+  # ===========================================
+  # MONITORING 360 - LOKI (Logs)
+  # ===========================================
+  # Agregation des logs:
+  # - Logs des microservices
+  # - Logs d'audit
+  # - Logs de securite
+  # ===========================================
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: guce-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - guce-network
+
+  # ===========================================
+  # MONITORING 360 - GRAFANA (Dashboards)
+  # ===========================================
+  # Dashboards pour:
+  # - Vue 360 de toutes les instances (Hub)
+  # - Sante des services
+  # - Metriques metier (transactions, utilisateurs)
+  # - Alertes
+  # ===========================================
 
   grafana:
     image: grafana/grafana:latest
@@ -273,27 +375,66 @@ services:
       - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
     depends_on:
       - prometheus
+      - loki
+    networks:
+      - guce-network
+
+  # ===========================================
+  # ALERTMANAGER (Alertes)
+  # ===========================================
+  # Gestion des alertes:
+  # - Instance DOWN
+  # - High CPU/Memory
+  # - Disk Space Low
+  # - High Response Time
+  # - Database Connection Failed
+  # ===========================================
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: guce-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./infrastructure/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
     networks:
       - guce-network
 
 # ===========================================
-# Volumes
+# VOLUMES
 # ===========================================
 
 volumes:
   postgres_data:
+    name: guce-postgres-data
   redis_data:
+    name: guce-redis-data
   mongodb_data:
+    name: guce-mongodb-data
   elasticsearch_data:
+    name: guce-elasticsearch-data
   zeebe_data:
+    name: guce-zeebe-data
   minio_data:
+    name: guce-minio-data
   prometheus_data:
+    name: guce-prometheus-data
   grafana_data:
+    name: guce-grafana-data
+  loki_data:
+    name: guce-loki-data
+  alertmanager_data:
+    name: guce-alertmanager-data
 
 # ===========================================
-# Networks
+# NETWORKS
 # ===========================================
 
 networks:
   guce-network:
     driver: bridge
+    name: guce-network

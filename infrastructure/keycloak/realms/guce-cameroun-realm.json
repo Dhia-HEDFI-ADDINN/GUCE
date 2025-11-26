@@ -23,44 +23,181 @@
   "failureFactor": 5,
   "roles": {
     "realm": [
-      { "name": "OPERATEUR_ECONOMIQUE", "description": "Opérateur économique" },
-      { "name": "DECLARANT", "description": "Déclarant" },
-      { "name": "COMMISSIONNAIRE_AGREE", "description": "Commissionnaire agréé en douane" },
-      { "name": "AGENT_DOUANE", "description": "Agent des douanes" },
-      { "name": "CHEF_BUREAU_DOUANE", "description": "Chef de bureau douanes" },
-      { "name": "INSPECTEUR_DOUANE", "description": "Inspecteur des douanes" },
-      { "name": "AGENT_PHYTOSANITAIRE", "description": "Agent phytosanitaire" },
-      { "name": "INSPECTEUR_PHYTOSANITAIRE", "description": "Inspecteur phytosanitaire" },
-      { "name": "AGENT_COMMERCE", "description": "Agent du commerce" },
-      { "name": "AGENT_BANQUE", "description": "Agent banque" },
-      { "name": "AGENT_SGS", "description": "Agent SGS" },
-      { "name": "AGENT_GUCE", "description": "Agent GUCE" },
-      { "name": "SUPERVISEUR_GUCE", "description": "Superviseur GUCE" },
-      { "name": "ADMIN_FONCTIONNEL", "description": "Administrateur fonctionnel" },
-      { "name": "ADMIN_TECHNIQUE", "description": "Administrateur technique" },
-      { "name": "SUPER_ADMIN", "description": "Super administrateur" }
+      {
+        "name": "SUPER_ADMIN_INSTANCE",
+        "description": "Admin total de l'instance - Acces complet"
+      },
+      {
+        "name": "ADMIN_FONCTIONNEL",
+        "description": "Configurer les procedures et workflows"
+      },
+      {
+        "name": "ADMIN_TECHNIQUE",
+        "description": "Gerer l'infrastructure et les parametres techniques"
+      },
+      {
+        "name": "USER_MANAGER",
+        "description": "Gerer les utilisateurs et les organisations"
+      },
+      {
+        "name": "OPERATEUR_ECONOMIQUE",
+        "description": "Utilisateur e-Force - Operateur economique"
+      },
+      {
+        "name": "DECLARANT",
+        "description": "Declarant en douane"
+      },
+      {
+        "name": "COMMISSIONNAIRE_AGREE",
+        "description": "Commissionnaire agree en douane"
+      },
+      {
+        "name": "AGENT_ADMINISTRATION",
+        "description": "Utilisateur e-Gov - Agent d'une administration"
+      },
+      {
+        "name": "AGENT_DOUANE",
+        "description": "Agent des douanes"
+      },
+      {
+        "name": "CHEF_BUREAU_DOUANE",
+        "description": "Chef de bureau douanes"
+      },
+      {
+        "name": "INSPECTEUR_DOUANE",
+        "description": "Inspecteur des douanes"
+      },
+      {
+        "name": "CONTROLEUR_DOUANE",
+        "description": "Controleur des douanes"
+      },
+      {
+        "name": "AGENT_PHYTOSANITAIRE",
+        "description": "Agent phytosanitaire (MINADER)"
+      },
+      {
+        "name": "INSPECTEUR_PHYTOSANITAIRE",
+        "description": "Inspecteur phytosanitaire"
+      },
+      {
+        "name": "AGENT_COMMERCE",
+        "description": "Agent du commerce (MINCOMMERCE)"
+      },
+      {
+        "name": "CHEF_SERVICE_COMMERCE",
+        "description": "Chef de service commerce"
+      },
+      {
+        "name": "AGENT_TRANSPORT",
+        "description": "Agent du transport"
+      },
+      {
+        "name": "INTERMEDIAIRE_AGREE",
+        "description": "Utilisateur e-Business - Intermediaire agree"
+      },
+      {
+        "name": "AGENT_BANQUE",
+        "description": "Agent bancaire"
+      },
+      {
+        "name": "SUPERVISEUR_BANQUE",
+        "description": "Superviseur bancaire"
+      },
+      {
+        "name": "CORRESPONDANT_BANQUE",
+        "description": "Correspondant bancaire"
+      },
+      {
+        "name": "AGENT_SGS",
+        "description": "Agent SGS/Inspection"
+      },
+      {
+        "name": "INSPECTEUR_SGS",
+        "description": "Inspecteur SGS"
+      },
+      {
+        "name": "SUPERVISEUR_SGS",
+        "description": "Superviseur SGS"
+      },
+      {
+        "name": "AGENT_COMPAGNIE_MARITIME",
+        "description": "Agent compagnie maritime"
+      },
+      {
+        "name": "AGENT_COMPAGNIE_AERIENNE",
+        "description": "Agent compagnie aerienne"
+      },
+      {
+        "name": "AGENT_GUCE",
+        "description": "Agent GUCE"
+      },
+      {
+        "name": "SUPERVISEUR_GUCE",
+        "description": "Superviseur GUCE"
+      },
+      {
+        "name": "DIRECTEUR_GUCE",
+        "description": "Directeur GUCE"
+      }
     ]
   },
   "groups": [
-    { "name": "Operateurs", "path": "/Operateurs" },
-    { "name": "Administrations", "path": "/Administrations" },
-    { "name": "Douanes", "path": "/Administrations/Douanes" },
-    { "name": "MINADER", "path": "/Administrations/MINADER" },
-    { "name": "MINCOMMERCE", "path": "/Administrations/MINCOMMERCE" },
-    { "name": "Intermediaires", "path": "/Intermediaires" },
-    { "name": "Banques", "path": "/Intermediaires/Banques" },
-    { "name": "Inspection", "path": "/Intermediaires/Inspection" },
-    { "name": "GUCE", "path": "/GUCE" }
+    {
+      "name": "Operateurs",
+      "path": "/Operateurs",
+      "subGroups": [
+        { "name": "ImportateursExportateurs", "path": "/Operateurs/ImportateursExportateurs" },
+        { "name": "Declarants", "path": "/Operateurs/Declarants" },
+        { "name": "Commissionnaires", "path": "/Operateurs/Commissionnaires" }
+      ]
+    },
+    {
+      "name": "Administrations",
+      "path": "/Administrations",
+      "subGroups": [
+        { "name": "Douanes", "path": "/Administrations/Douanes" },
+        { "name": "MINADER", "path": "/Administrations/MINADER" },
+        { "name": "MINCOMMERCE", "path": "/Administrations/MINCOMMERCE" },
+        { "name": "MINT", "path": "/Administrations/MINT" }
+      ]
+    },
+    {
+      "name": "Intermediaires",
+      "path": "/Intermediaires",
+      "subGroups": [
+        { "name": "Banques", "path": "/Intermediaires/Banques" },
+        { "name": "Inspection", "path": "/Intermediaires/Inspection" },
+        { "name": "CompagniesTransport", "path": "/Intermediaires/CompagniesTransport" }
+      ]
+    },
+    {
+      "name": "GUCE",
+      "path": "/GUCE",
+      "subGroups": [
+        { "name": "Agents", "path": "/GUCE/Agents" },
+        { "name": "Superviseurs", "path": "/GUCE/Superviseurs" },
+        { "name": "Direction", "path": "/GUCE/Direction" }
+      ]
+    },
+    {
+      "name": "Administration",
+      "path": "/Administration",
+      "subGroups": [
+        { "name": "AdminFonctionnel", "path": "/Administration/AdminFonctionnel" },
+        { "name": "AdminTechnique", "path": "/Administration/AdminTechnique" },
+        { "name": "SuperAdmin", "path": "/Administration/SuperAdmin" }
+      ]
+    }
   ],
   "clients": [
     {
       "clientId": "e-force",
-      "name": "e-FORCE - Portail Opérateurs",
-      "description": "Portail web pour les opérateurs économiques",
+      "name": "e-FORCE - Portail Operateurs",
+      "description": "Portail web pour les operateurs economiques (declarations, documents, paiements, suivi)",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4200/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4200", "https://*.guce.cm"],
+      "redirectUris": ["http://localhost:4200/*", "https://guce-cameroun.com/e-force/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4200", "https://guce-cameroun.com", "https://*.guce.cm"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
@@ -69,11 +206,11 @@
     {
       "clientId": "e-gov",
       "name": "e-GOV - Portail Administrations",
-      "description": "Interface de traitement pour les administrations publiques",
+      "description": "Interface de traitement pour les administrations publiques (corbeille, traitement, decisions, statistiques)",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4201/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4201", "https://*.guce.cm"],
+      "redirectUris": ["http://localhost:4201/*", "https://guce-cameroun.com/e-gov/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4201", "https://guce-cameroun.com", "https://*.guce.cm"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
@@ -81,12 +218,38 @@
     },
     {
       "clientId": "e-business",
-      "name": "e-BUSINESS - Portail Intermédiaires",
-      "description": "Portail pour les intermédiaires (banques, SGS, etc.)",
+      "name": "e-BUSINESS - Portail Intermediaires",
+      "description": "Portail pour les intermediaires agrees (banques, SGS, etc.)",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4202/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4202", "https://*.guce.cm"],
+      "redirectUris": ["http://localhost:4202/*", "https://guce-cameroun.com/e-business/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4202", "https://guce-cameroun.com", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "e-payment",
+      "name": "e-PAYMENT - Module Paiement",
+      "description": "Module de paiement en ligne (mobile money, carte, virement)",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4204/*", "https://guce-cameroun.com/e-payment/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4204", "https://guce-cameroun.com", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "procedure-builder",
+      "name": "Procedure Builder - Configuration",
+      "description": "Module de configuration des procedures (workflow designer, form builder, data modeler, rules editor)",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4205/*", "https://guce-cameroun.com/config/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4205", "https://guce-cameroun.com", "https://*.guce.cm"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
@@ -94,12 +257,12 @@
     },
     {
       "clientId": "guce-admin",
-      "name": "Console d'administration GUCE",
-      "description": "Console d'administration du Guichet Unique",
+      "name": "Console d'administration locale GUCE",
+      "description": "Console d'administration de l'instance (utilisateurs, roles, organisations, audit, parametres)",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4203/*", "https://*.guce.cm/*"],
-      "webOrigins": ["http://localhost:4203", "https://*.guce.cm"],
+      "redirectUris": ["http://localhost:4203/*", "https://guce-cameroun.com/admin/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4203", "https://guce-cameroun.com", "https://*.guce.cm"],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
@@ -107,29 +270,50 @@
     },
     {
       "clientId": "guce-api",
-      "name": "API GUCE",
-      "description": "Client pour les APIs backend",
+      "name": "API GUCE Instance",
+      "description": "Client pour les APIs backend de l'instance",
       "enabled": true,
       "publicClient": false,
       "secret": "guce-api-secret",
       "bearerOnly": true,
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-agent",
+      "name": "Agent Hub",
+      "description": "Client pour la communication avec le Hub (monitoring, updates, templates)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "hub-agent-secret",
+      "serviceAccountsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
   ],
   "users": [
     {
-      "username": "admin",
-      "email": "admin@guce.cm",
+      "username": "super-admin",
+      "email": "admin@guce-cameroun.com",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Super",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "admin", "temporary": true }],
+      "realmRoles": ["SUPER_ADMIN_INSTANCE", "ADMIN_TECHNIQUE", "ADMIN_FONCTIONNEL", "USER_MANAGER"]
+    },
+    {
+      "username": "admin-fonctionnel",
+      "email": "admin-fonctionnel@guce-cameroun.com",
       "enabled": true,
       "emailVerified": true,
       "firstName": "Admin",
-      "lastName": "GUCE",
-      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
-      "realmRoles": ["SUPER_ADMIN", "ADMIN_TECHNIQUE", "ADMIN_FONCTIONNEL"]
+      "lastName": "Fonctionnel",
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": true }],
+      "realmRoles": ["ADMIN_FONCTIONNEL"]
     },
     {
-      "username": "operateur",
+      "username": "operateur-test",
       "email": "operateur@test.cm",
       "enabled": true,
       "emailVerified": true,
@@ -139,14 +323,44 @@
       "realmRoles": ["OPERATEUR_ECONOMIQUE"]
     },
     {
-      "username": "douane",
+      "username": "agent-douane",
       "email": "douane@douanes.cm",
       "enabled": true,
       "emailVerified": true,
       "firstName": "Agent",
       "lastName": "DOUANE",
       "credentials": [{ "type": "password", "value": "douane", "temporary": false }],
-      "realmRoles": ["AGENT_DOUANE"]
+      "realmRoles": ["AGENT_DOUANE", "AGENT_ADMINISTRATION"]
+    },
+    {
+      "username": "agent-banque",
+      "email": "agent@banque.cm",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Agent",
+      "lastName": "BANQUE",
+      "credentials": [{ "type": "password", "value": "banque", "temporary": false }],
+      "realmRoles": ["AGENT_BANQUE", "INTERMEDIAIRE_AGREE"]
+    },
+    {
+      "username": "agent-sgs",
+      "email": "agent@sgs.cm",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Agent",
+      "lastName": "SGS",
+      "credentials": [{ "type": "password", "value": "sgs", "temporary": false }],
+      "realmRoles": ["AGENT_SGS", "INTERMEDIAIRE_AGREE"]
+    }
+  ],
+  "clientScopes": [
+    {
+      "name": "guce-scope",
+      "description": "Scope GUCE pour les informations specifiques a l'instance",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true"
+      }
     }
   ]
 }
