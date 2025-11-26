@@ -1,0 +1,43 @@
+# GUCE Platform - Configuration Prometheus
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # GUCE Microservices
+  - job_name: 'guce-microservices'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'host.docker.internal:8081'  # ms-referential
+          - 'host.docker.internal:8082'  # ms-procedure
+          - 'host.docker.internal:8083'  # ms-document
+          - 'host.docker.internal:8084'  # ms-payment
+          - 'host.docker.internal:8085'  # ms-notification
+          - 'host.docker.internal:8086'  # ms-generator
+
+  # Zeebe
+  - job_name: 'zeebe'
+    static_configs:
+      - targets: ['zeebe:9600']
+
+  # Kafka
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9092']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']

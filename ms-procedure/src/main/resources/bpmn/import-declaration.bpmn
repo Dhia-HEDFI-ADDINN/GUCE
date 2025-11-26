@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_ImportDeclaration"
+                  targetNamespace="http://guce.cm/procedures">
+
+  <bpmn:process id="import-declaration-process" name="Déclaration d'Importation" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="start" name="Soumission Déclaration">
+      <bpmn:outgoing>flow1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Vérification Automatique -->
+    <bpmn:serviceTask id="auto-verification" name="Vérification Automatique">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:verify-declaration"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow1</bpmn:incoming>
+      <bpmn:outgoing>flow2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: Vérification OK? -->
+    <bpmn:exclusiveGateway id="gateway-verification" name="Vérification OK?">
+      <bpmn:incoming>flow2</bpmn:incoming>
+      <bpmn:outgoing>flow-ok</bpmn:outgoing>
+      <bpmn:outgoing>flow-ko</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Demande de correction -->
+    <bpmn:userTask id="request-correction" name="Demande de Correction">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="OPERATEUR_ECONOMIQUE,DECLARANT"/>
+        <zeebe:formDefinition formKey="form:correction-request"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-ko</bpmn:incoming>
+      <bpmn:outgoing>flow-correction</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Attribution Inspecteur -->
+    <bpmn:serviceTask id="assign-inspector" name="Attribution Inspecteur">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:assign-inspector"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-ok</bpmn:incoming>
+      <bpmn:outgoing>flow3</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Contrôle Documentaire -->
+    <bpmn:userTask id="document-control" name="Contrôle Documentaire">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="AGENT_DOUANE,INSPECTEUR_DOUANE"/>
+        <zeebe:formDefinition formKey="form:document-control"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow3</bpmn:incoming>
+      <bpmn:incoming>flow-correction</bpmn:incoming>
+      <bpmn:outgoing>flow4</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Gateway: Documents Conformes? -->
+    <bpmn:exclusiveGateway id="gateway-documents" name="Documents Conformes?">
+      <bpmn:incoming>flow4</bpmn:incoming>
+      <bpmn:outgoing>flow-docs-ok</bpmn:outgoing>
+      <bpmn:outgoing>flow-docs-ko</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Calcul Liquidation -->
+    <bpmn:serviceTask id="calculate-duties" name="Calcul Droits et Taxes">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:calculate-duties"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-docs-ok</bpmn:incoming>
+      <bpmn:outgoing>flow5</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Validation Chef Bureau -->
+    <bpmn:userTask id="chief-validation" name="Validation Chef Bureau">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="CHEF_BUREAU_DOUANE"/>
+        <zeebe:formDefinition formKey="form:chief-validation"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow5</bpmn:incoming>
+      <bpmn:outgoing>flow6</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Gateway: Approuvé? -->
+    <bpmn:exclusiveGateway id="gateway-approval" name="Approuvé?">
+      <bpmn:incoming>flow6</bpmn:incoming>
+      <bpmn:outgoing>flow-approved</bpmn:outgoing>
+      <bpmn:outgoing>flow-rejected</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Attente Paiement -->
+    <bpmn:receiveTask id="wait-payment" name="Attente Paiement">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:payment-received"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-approved</bpmn:incoming>
+      <bpmn:outgoing>flow7</bpmn:outgoing>
+    </bpmn:receiveTask>
+
+    <!-- Génération Mainlevée -->
+    <bpmn:serviceTask id="generate-release" name="Génération Mainlevée">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:generate-release"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow7</bpmn:incoming>
+      <bpmn:outgoing>flow8</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Notification Opérateur -->
+    <bpmn:serviceTask id="notify-operator" name="Notification Opérateur">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:notify"/>
+        <zeebe:taskHeaders>
+          <zeebe:header key="template" value="release-notification"/>
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow8</bpmn:incoming>
+      <bpmn:outgoing>flow-end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Rejet -->
+    <bpmn:serviceTask id="reject-declaration" name="Rejet Déclaration">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:reject"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-rejected</bpmn:incoming>
+      <bpmn:incoming>flow-docs-ko</bpmn:incoming>
+      <bpmn:outgoing>flow-reject-end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End Events -->
+    <bpmn:endEvent id="end-success" name="Mainlevée Accordée">
+      <bpmn:incoming>flow-end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="end-rejected" name="Déclaration Rejetée">
+      <bpmn:incoming>flow-reject-end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="flow1" sourceRef="start" targetRef="auto-verification"/>
+    <bpmn:sequenceFlow id="flow2" sourceRef="auto-verification" targetRef="gateway-verification"/>
+    <bpmn:sequenceFlow id="flow-ok" name="OK" sourceRef="gateway-verification" targetRef="assign-inspector">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =verificationPassed = true
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-ko" name="Erreurs" sourceRef="gateway-verification" targetRef="request-correction">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =verificationPassed = false
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-correction" sourceRef="request-correction" targetRef="document-control"/>
+    <bpmn:sequenceFlow id="flow3" sourceRef="assign-inspector" targetRef="document-control"/>
+    <bpmn:sequenceFlow id="flow4" sourceRef="document-control" targetRef="gateway-documents"/>
+    <bpmn:sequenceFlow id="flow-docs-ok" name="Conformes" sourceRef="gateway-documents" targetRef="calculate-duties">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =documentsConformes = true
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-docs-ko" name="Non Conformes" sourceRef="gateway-documents" targetRef="reject-declaration">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =documentsConformes = false
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow5" sourceRef="calculate-duties" targetRef="chief-validation"/>
+    <bpmn:sequenceFlow id="flow6" sourceRef="chief-validation" targetRef="gateway-approval"/>
+    <bpmn:sequenceFlow id="flow-approved" name="Approuvé" sourceRef="gateway-approval" targetRef="wait-payment">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =approved = true
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-rejected" name="Rejeté" sourceRef="gateway-approval" targetRef="reject-declaration">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =approved = false
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow7" sourceRef="wait-payment" targetRef="generate-release"/>
+    <bpmn:sequenceFlow id="flow8" sourceRef="generate-release" targetRef="notify-operator"/>
+    <bpmn:sequenceFlow id="flow-end" sourceRef="notify-operator" targetRef="end-success"/>
+    <bpmn:sequenceFlow id="flow-reject-end" sourceRef="reject-declaration" targetRef="end-rejected"/>
+
+  </bpmn:process>
+
+</bpmn:definitions>

@@ -1,0 +1,152 @@
+{
+  "realm": "guce-cameroun",
+  "enabled": true,
+  "displayName": "GUCE Cameroun",
+  "displayNameHtml": "<div class=\"kc-logo-text\"><span>GUCE Cameroun</span></div>",
+  "loginTheme": "keycloak",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 5,
+  "roles": {
+    "realm": [
+      { "name": "OPERATEUR_ECONOMIQUE", "description": "Opérateur économique" },
+      { "name": "DECLARANT", "description": "Déclarant" },
+      { "name": "COMMISSIONNAIRE_AGREE", "description": "Commissionnaire agréé en douane" },
+      { "name": "AGENT_DOUANE", "description": "Agent des douanes" },
+      { "name": "CHEF_BUREAU_DOUANE", "description": "Chef de bureau douanes" },
+      { "name": "INSPECTEUR_DOUANE", "description": "Inspecteur des douanes" },
+      { "name": "AGENT_PHYTOSANITAIRE", "description": "Agent phytosanitaire" },
+      { "name": "INSPECTEUR_PHYTOSANITAIRE", "description": "Inspecteur phytosanitaire" },
+      { "name": "AGENT_COMMERCE", "description": "Agent du commerce" },
+      { "name": "AGENT_BANQUE", "description": "Agent banque" },
+      { "name": "AGENT_SGS", "description": "Agent SGS" },
+      { "name": "AGENT_GUCE", "description": "Agent GUCE" },
+      { "name": "SUPERVISEUR_GUCE", "description": "Superviseur GUCE" },
+      { "name": "ADMIN_FONCTIONNEL", "description": "Administrateur fonctionnel" },
+      { "name": "ADMIN_TECHNIQUE", "description": "Administrateur technique" },
+      { "name": "SUPER_ADMIN", "description": "Super administrateur" }
+    ]
+  },
+  "groups": [
+    { "name": "Operateurs", "path": "/Operateurs" },
+    { "name": "Administrations", "path": "/Administrations" },
+    { "name": "Douanes", "path": "/Administrations/Douanes" },
+    { "name": "MINADER", "path": "/Administrations/MINADER" },
+    { "name": "MINCOMMERCE", "path": "/Administrations/MINCOMMERCE" },
+    { "name": "Intermediaires", "path": "/Intermediaires" },
+    { "name": "Banques", "path": "/Intermediaires/Banques" },
+    { "name": "Inspection", "path": "/Intermediaires/Inspection" },
+    { "name": "GUCE", "path": "/GUCE" }
+  ],
+  "clients": [
+    {
+      "clientId": "e-force",
+      "name": "e-FORCE - Portail Opérateurs",
+      "description": "Portail web pour les opérateurs économiques",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4200/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4200", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "e-gov",
+      "name": "e-GOV - Portail Administrations",
+      "description": "Interface de traitement pour les administrations publiques",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4201/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4201", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "e-business",
+      "name": "e-BUSINESS - Portail Intermédiaires",
+      "description": "Portail pour les intermédiaires (banques, SGS, etc.)",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4202/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4202", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "guce-admin",
+      "name": "Console d'administration GUCE",
+      "description": "Console d'administration du Guichet Unique",
+      "enabled": true,
+      "publicClient": true,
+      "redirectUris": ["http://localhost:4203/*", "https://*.guce.cm/*"],
+      "webOrigins": ["http://localhost:4203", "https://*.guce.cm"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "guce-api",
+      "name": "API GUCE",
+      "description": "Client pour les APIs backend",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "guce-api-secret",
+      "bearerOnly": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "email": "admin@guce.cm",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Admin",
+      "lastName": "GUCE",
+      "credentials": [{ "type": "password", "value": "admin", "temporary": false }],
+      "realmRoles": ["SUPER_ADMIN", "ADMIN_TECHNIQUE", "ADMIN_FONCTIONNEL"]
+    },
+    {
+      "username": "operateur",
+      "email": "operateur@test.cm",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Jean",
+      "lastName": "OPERATEUR",
+      "credentials": [{ "type": "password", "value": "operateur", "temporary": false }],
+      "realmRoles": ["OPERATEUR_ECONOMIQUE"]
+    },
+    {
+      "username": "douane",
+      "email": "douane@douanes.cm",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Agent",
+      "lastName": "DOUANE",
+      "credentials": [{ "type": "password", "value": "douane", "temporary": false }],
+      "realmRoles": ["AGENT_DOUANE"]
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="007-create-document-type-table" author="guce">
+        <createTable tableName="ref_document_type" schemaName="referential">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code" type="varchar(20)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="name_fr" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name_en" type="varchar(255)"/>
+            <column name="description_fr" type="text"/>
+            <column name="description_en" type="text"/>
+            <column name="category" type="varchar(50)"/>
+            <column name="issuing_authority" type="varchar(255)"/>
+            <column name="validity_days" type="integer"/>
+            <column name="is_mandatory" type="boolean" defaultValueBoolean="false"/>
+            <column name="is_electronic" type="boolean" defaultValueBoolean="true"/>
+            <column name="max_file_size_mb" type="integer" defaultValue="10"/>
+            <column name="allowed_extensions" type="varchar(255)" defaultValue="pdf,jpg,jpeg,png"/>
+            <column name="is_active" type="boolean" defaultValueBoolean="true"/>
+            <column name="tenant_id" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp"/>
+            <column name="created_by" type="varchar(255)"/>
+            <column name="updated_by" type="varchar(255)"/>
+            <column name="version" type="bigint" defaultValue="0"/>
+            <column name="is_deleted" type="boolean" defaultValueBoolean="false"/>
+            <column name="deleted_at" type="timestamp"/>
+            <column name="deleted_by" type="varchar(255)"/>
+        </createTable>
+
+        <createIndex tableName="ref_document_type" indexName="idx_document_type_code" schemaName="referential">
+            <column name="code"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

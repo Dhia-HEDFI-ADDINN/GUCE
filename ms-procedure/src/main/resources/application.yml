@@ -1,0 +1,87 @@
+spring:
+  application:
+    name: ms-procedure
+
+  profiles:
+    active: dev
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:guce_procedure}
+    username: ${DB_USER:guce}
+    password: ${DB_PASSWORD:guce}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: procedure
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/migration/db.changelog-master.xml
+    default-schema: procedure
+
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_URL:http://localhost:8180}/realms/${KEYCLOAK_REALM:guce-cameroun}
+          jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8180}/realms/${KEYCLOAK_REALM:guce-cameroun}/protocol/openid-connect/certs
+
+server:
+  port: ${SERVER_PORT:8082}
+  servlet:
+    context-path: /
+
+zeebe:
+  client:
+    broker:
+      gateway-address: ${ZEEBE_ADDRESS:localhost:26500}
+    security:
+      plaintext: true
+    worker:
+      default-name: guce-procedure-worker
+      default-type: io.camunda:guce
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+guce:
+  openapi:
+    server-url: ${SERVER_URL:http://localhost:8082}
+  keycloak:
+    auth-server-url: ${KEYCLOAK_URL:http://localhost:8180}
+    realm: ${KEYCLOAK_REALM:guce-cameroun}
+
+logging:
+  level:
+    cm.guce: DEBUG
+    io.camunda.zeebe: INFO

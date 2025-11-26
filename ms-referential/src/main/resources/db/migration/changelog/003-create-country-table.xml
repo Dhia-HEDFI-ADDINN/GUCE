@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="003-create-country-table" author="guce">
+        <createTable tableName="ref_country" schemaName="referential">
+            <column name="id" type="uuid">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="code_iso2" type="varchar(2)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="code_iso3" type="varchar(3)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+            <column name="code_numeric" type="varchar(3)"/>
+            <column name="name_fr" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name_en" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="nationality_fr" type="varchar(255)"/>
+            <column name="nationality_en" type="varchar(255)"/>
+            <column name="region" type="varchar(100)"/>
+            <column name="sub_region" type="varchar(100)"/>
+            <column name="economic_zone" type="varchar(50)"/>
+            <column name="is_cemac" type="boolean" defaultValueBoolean="false"/>
+            <column name="is_active" type="boolean" defaultValueBoolean="true"/>
+            <column name="default_currency_id" type="uuid"/>
+            <column name="tenant_id" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamp"/>
+            <column name="created_by" type="varchar(255)"/>
+            <column name="updated_by" type="varchar(255)"/>
+            <column name="version" type="bigint" defaultValue="0"/>
+            <column name="is_deleted" type="boolean" defaultValueBoolean="false"/>
+            <column name="deleted_at" type="timestamp"/>
+            <column name="deleted_by" type="varchar(255)"/>
+        </createTable>
+
+        <addForeignKeyConstraint baseTableName="ref_country"
+                                 baseColumnNames="default_currency_id"
+                                 baseTableSchemaName="referential"
+                                 constraintName="fk_country_currency"
+                                 referencedTableName="ref_currency"
+                                 referencedColumnNames="id"
+                                 referencedTableSchemaName="referential"/>
+
+        <createIndex tableName="ref_country" indexName="idx_country_code_iso2" schemaName="referential">
+            <column name="code_iso2"/>
+        </createIndex>
+
+        <createIndex tableName="ref_country" indexName="idx_country_code_iso3" schemaName="referential">
+            <column name="code_iso3"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,299 @@
+version: '3.8'
+
+# GUCE Platform - Docker Compose pour environnement de développement local
+# e-GUCE 3G - Guichet Unique du Commerce Extérieur
+
+services:
+
+  # ===========================================
+  # Base de données
+  # ===========================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: guce-postgres
+    environment:
+      POSTGRES_USER: guce
+      POSTGRES_PASSWORD: guce
+      POSTGRES_DB: guce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - guce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U guce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Redis (Cache et Sessions)
+  # ===========================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: guce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - guce-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # MongoDB (Documents et Logs)
+  # ===========================================
+
+  mongodb:
+    image: mongo:7
+    container_name: guce-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: guce
+      MONGO_INITDB_ROOT_PASSWORD: guce
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - guce-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Kafka (Event Streaming)
+  # ===========================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: guce-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - guce-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: guce-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - guce-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: guce-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: guce-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    networks:
+      - guce-network
+
+  # ===========================================
+  # Camunda 8 / Zeebe (Workflow Engine)
+  # ===========================================
+
+  zeebe:
+    image: camunda/zeebe:8.4.0
+    container_name: guce-zeebe
+    ports:
+      - "26500:26500"
+      - "9600:9600"
+    environment:
+      ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_CLASSNAME: io.camunda.zeebe.exporter.ElasticsearchExporter
+      ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_URL: http://elasticsearch:9200
+      ZEEBE_BROKER_EXPORTERS_ELASTICSEARCH_ARGS_INDEX_PREFIX: zeebe-record
+    volumes:
+      - zeebe_data:/usr/local/zeebe/data
+    depends_on:
+      - elasticsearch
+    networks:
+      - guce-network
+
+  operate:
+    image: camunda/operate:8.4.0
+    container_name: guce-operate
+    ports:
+      - "8081:8080"
+    environment:
+      CAMUNDA_OPERATE_ZEEBE_GATEWAYADDRESS: zeebe:26500
+      CAMUNDA_OPERATE_ELASTICSEARCH_URL: http://elasticsearch:9200
+      CAMUNDA_OPERATE_ZEEBEELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      - zeebe
+      - elasticsearch
+    networks:
+      - guce-network
+
+  tasklist:
+    image: camunda/tasklist:8.4.0
+    container_name: guce-tasklist
+    ports:
+      - "8082:8080"
+    environment:
+      CAMUNDA_TASKLIST_ZEEBE_GATEWAYADDRESS: zeebe:26500
+      CAMUNDA_TASKLIST_ELASTICSEARCH_URL: http://elasticsearch:9200
+      CAMUNDA_TASKLIST_ZEEBEELASTICSEARCH_URL: http://elasticsearch:9200
+    depends_on:
+      - zeebe
+      - elasticsearch
+    networks:
+      - guce-network
+
+  # ===========================================
+  # Elasticsearch (Search & Analytics)
+  # ===========================================
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: guce-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - guce-network
+    healthcheck:
+      test: curl -s http://localhost:9200 >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================
+  # Keycloak (IAM)
+  # ===========================================
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.3
+    container_name: guce-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/guce
+      KC_DB_USERNAME: guce
+      KC_DB_PASSWORD: guce
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8080"
+    volumes:
+      - ./infrastructure/keycloak/realms:/opt/keycloak/data/import
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - guce-network
+
+  # ===========================================
+  # MinIO (Stockage Objet S3)
+  # ===========================================
+
+  minio:
+    image: minio/minio:latest
+    container_name: guce-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: guce
+      MINIO_ROOT_PASSWORD: guceminio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - guce-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ===========================================
+  # Monitoring
+  # ===========================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: guce-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - guce-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: guce-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - guce-network
+
+# ===========================================
+# Volumes
+# ===========================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  elasticsearch_data:
+  zeebe_data:
+  minio_data:
+  prometheus_data:
+  grafana_data:
+
+# ===========================================
+# Networks
+# ===========================================
+
+networks:
+  guce-network:
+    driver: bridge

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <include file="db/migration/changelog/001-create-schema.xml"/>
+    <include file="db/migration/changelog/002-create-currency-table.xml"/>
+    <include file="db/migration/changelog/003-create-country-table.xml"/>
+    <include file="db/migration/changelog/004-create-hs-code-table.xml"/>
+    <include file="db/migration/changelog/005-create-customs-office-table.xml"/>
+    <include file="db/migration/changelog/006-create-customs-regime-table.xml"/>
+    <include file="db/migration/changelog/007-create-document-type-table.xml"/>
+    <include file="db/migration/changelog/008-insert-initial-data.xml"/>
+
+</databaseChangeLog>

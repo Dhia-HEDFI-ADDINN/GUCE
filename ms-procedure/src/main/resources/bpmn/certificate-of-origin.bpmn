@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:zeebe="http://camunda.org/schema/zeebe/1.0"
+                  id="Definitions_CertificateOfOrigin"
+                  targetNamespace="http://guce.cm/procedures">
+
+  <bpmn:process id="certificate-origin-process" name="Certificat d'Origine" isExecutable="true">
+
+    <!-- Start Event -->
+    <bpmn:startEvent id="start" name="Demande de Certificat">
+      <bpmn:outgoing>flow1</bpmn:outgoing>
+    </bpmn:startEvent>
+
+    <!-- Vérification des pièces jointes -->
+    <bpmn:serviceTask id="verify-attachments" name="Vérification Pièces Jointes">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:verify-attachments"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow1</bpmn:incoming>
+      <bpmn:outgoing>flow2</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Gateway: Pièces complètes? -->
+    <bpmn:exclusiveGateway id="gateway-attachments" name="Pièces Complètes?">
+      <bpmn:incoming>flow2</bpmn:incoming>
+      <bpmn:outgoing>flow-complete</bpmn:outgoing>
+      <bpmn:outgoing>flow-incomplete</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Demande de compléments -->
+    <bpmn:userTask id="request-documents" name="Demande de Compléments">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="OPERATEUR_ECONOMIQUE"/>
+        <zeebe:formDefinition formKey="form:additional-documents"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-incomplete</bpmn:incoming>
+      <bpmn:outgoing>flow-supplement</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Instruction du dossier -->
+    <bpmn:userTask id="review-application" name="Instruction du Dossier">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="AGENT_COMMERCE"/>
+        <zeebe:formDefinition formKey="form:origin-review"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-complete</bpmn:incoming>
+      <bpmn:incoming>flow-supplement</bpmn:incoming>
+      <bpmn:outgoing>flow3</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Gateway: Dossier Recevable? -->
+    <bpmn:exclusiveGateway id="gateway-review" name="Dossier Recevable?">
+      <bpmn:incoming>flow3</bpmn:incoming>
+      <bpmn:outgoing>flow-accepted</bpmn:outgoing>
+      <bpmn:outgoing>flow-refused</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+
+    <!-- Calcul des frais -->
+    <bpmn:serviceTask id="calculate-fees" name="Calcul des Frais">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:calculate-fees"/>
+        <zeebe:taskHeaders>
+          <zeebe:header key="procedureType" value="CERTIFICATE_ORIGIN"/>
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-accepted</bpmn:incoming>
+      <bpmn:outgoing>flow4</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Attente Paiement -->
+    <bpmn:receiveTask id="wait-payment" name="Attente Paiement">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:payment-received"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow4</bpmn:incoming>
+      <bpmn:outgoing>flow5</bpmn:outgoing>
+    </bpmn:receiveTask>
+
+    <!-- Génération du certificat -->
+    <bpmn:serviceTask id="generate-certificate" name="Génération Certificat">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:generate-certificate"/>
+        <zeebe:taskHeaders>
+          <zeebe:header key="template" value="CERTIFICATE_OF_ORIGIN"/>
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow5</bpmn:incoming>
+      <bpmn:outgoing>flow6</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Signature électronique -->
+    <bpmn:userTask id="sign-certificate" name="Signature Électronique">
+      <bpmn:extensionElements>
+        <zeebe:assignmentDefinition candidateGroups="CHEF_SERVICE_COMMERCE"/>
+        <zeebe:formDefinition formKey="form:signature"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow6</bpmn:incoming>
+      <bpmn:outgoing>flow7</bpmn:outgoing>
+    </bpmn:userTask>
+
+    <!-- Notification -->
+    <bpmn:serviceTask id="notify-operator" name="Notification Exportateur">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:notify"/>
+        <zeebe:taskHeaders>
+          <zeebe:header key="template" value="certificate-ready"/>
+        </zeebe:taskHeaders>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow7</bpmn:incoming>
+      <bpmn:outgoing>flow-end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- Rejet -->
+    <bpmn:serviceTask id="reject-application" name="Rejet Demande">
+      <bpmn:extensionElements>
+        <zeebe:taskDefinition type="guce:reject"/>
+      </bpmn:extensionElements>
+      <bpmn:incoming>flow-refused</bpmn:incoming>
+      <bpmn:outgoing>flow-reject-end</bpmn:outgoing>
+    </bpmn:serviceTask>
+
+    <!-- End Events -->
+    <bpmn:endEvent id="end-success" name="Certificat Délivré">
+      <bpmn:incoming>flow-end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <bpmn:endEvent id="end-rejected" name="Demande Rejetée">
+      <bpmn:incoming>flow-reject-end</bpmn:incoming>
+    </bpmn:endEvent>
+
+    <!-- Sequence Flows -->
+    <bpmn:sequenceFlow id="flow1" sourceRef="start" targetRef="verify-attachments"/>
+    <bpmn:sequenceFlow id="flow2" sourceRef="verify-attachments" targetRef="gateway-attachments"/>
+    <bpmn:sequenceFlow id="flow-complete" name="Complet" sourceRef="gateway-attachments" targetRef="review-application">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =attachmentsComplete = true
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-incomplete" name="Incomplet" sourceRef="gateway-attachments" targetRef="request-documents">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =attachmentsComplete = false
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-supplement" sourceRef="request-documents" targetRef="review-application"/>
+    <bpmn:sequenceFlow id="flow3" sourceRef="review-application" targetRef="gateway-review"/>
+    <bpmn:sequenceFlow id="flow-accepted" name="Recevable" sourceRef="gateway-review" targetRef="calculate-fees">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =applicationAccepted = true
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow-refused" name="Irrecevable" sourceRef="gateway-review" targetRef="reject-application">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        =applicationAccepted = false
+      </bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="flow4" sourceRef="calculate-fees" targetRef="wait-payment"/>
+    <bpmn:sequenceFlow id="flow5" sourceRef="wait-payment" targetRef="generate-certificate"/>
+    <bpmn:sequenceFlow id="flow6" sourceRef="generate-certificate" targetRef="sign-certificate"/>
+    <bpmn:sequenceFlow id="flow7" sourceRef="sign-certificate" targetRef="notify-operator"/>
+    <bpmn:sequenceFlow id="flow-end" sourceRef="notify-operator" targetRef="end-success"/>
+    <bpmn:sequenceFlow id="flow-reject-end" sourceRef="reject-application" targetRef="end-rejected"/>
+
+  </bpmn:process>
+
+</bpmn:definitions>
