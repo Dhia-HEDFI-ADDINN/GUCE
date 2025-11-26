@@ -1,0 +1,72 @@
+# =============================================================================
+# E-GUCE 3G - Grafana Datasources Configuration
+# =============================================================================
+# Sources de donnees pour le monitoring 360 du Hub et des instances.
+# =============================================================================
+
+apiVersion: 1
+
+datasources:
+  # -----------------------------------------
+  # Prometheus - Metriques
+  # -----------------------------------------
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # -----------------------------------------
+  # Loki - Logs
+  # -----------------------------------------
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      maxLines: 1000
+
+  # -----------------------------------------
+  # Elasticsearch - Search & Zeebe
+  # -----------------------------------------
+  - name: Elasticsearch
+    type: elasticsearch
+    access: proxy
+    url: http://elasticsearch:9200
+    database: "zeebe-record-*"
+    editable: false
+    jsonData:
+      esVersion: "8.0.0"
+      timeField: "timestamp"
+      logMessageField: "message"
+      logLevelField: "level"
+
+  # -----------------------------------------
+  # PostgreSQL - Base de donnees Hub
+  # -----------------------------------------
+  - name: PostgreSQL-Hub
+    type: postgres
+    url: postgres:5432
+    database: guce_hub_monitoring
+    user: guce
+    secureJsonData:
+      password: guce
+    editable: false
+    jsonData:
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: true
+
+  # -----------------------------------------
+  # Redis - Cache metrics
+  # -----------------------------------------
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://redis:6379
+    editable: false

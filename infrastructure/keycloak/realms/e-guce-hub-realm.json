@@ -82,78 +82,48 @@
   ],
   "clients": [
     {
-      "clientId": "hub-tenant-builder",
-      "name": "Tenant Builder",
-      "description": "Module de creation et gestion des instances GUCE",
+      "clientId": "e-guce-hub",
+      "name": "E-GUCE 3G Generator Hub",
+      "description": "Interface unique du Hub - Acces a tous les modules (Tenant Builder, Generator Engine, Monitoring 360, Admin Central, Templates Library)",
       "enabled": true,
       "publicClient": true,
-      "redirectUris": ["http://localhost:4300/*", "https://e-guce-hub.com/*"],
-      "webOrigins": ["http://localhost:4300", "https://e-guce-hub.com"],
+      "rootUrl": "https://e-guce-hub.com",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:4200/*",
+        "https://e-guce-hub.com/*"
+      ],
+      "webOrigins": [
+        "http://localhost:4200",
+        "https://e-guce-hub.com"
+      ],
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
       "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "hub-generator",
-      "name": "Generator Engine",
-      "description": "Module de generation de code et d'infrastructure",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4301/*", "https://e-guce-hub.com/*"],
-      "webOrigins": ["http://localhost:4301", "https://e-guce-hub.com"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "hub-monitoring",
-      "name": "Monitoring 360",
-      "description": "Module de supervision de toutes les instances",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4302/*", "https://e-guce-hub.com/*"],
-      "webOrigins": ["http://localhost:4302", "https://e-guce-hub.com"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "hub-admin",
-      "name": "Administration Centrale",
-      "description": "Console d'administration du Hub",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4303/*", "https://e-guce-hub.com/*"],
-      "webOrigins": ["http://localhost:4303", "https://e-guce-hub.com"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
-    },
-    {
-      "clientId": "hub-templates",
-      "name": "Templates Library",
-      "description": "Bibliotheque de templates",
-      "enabled": true,
-      "publicClient": true,
-      "redirectUris": ["http://localhost:4304/*", "https://e-guce-hub.com/*"],
-      "webOrigins": ["http://localhost:4304", "https://e-guce-hub.com"],
-      "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": true,
-      "protocol": "openid-connect",
-      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:4200/*##https://e-guce-hub.com/*"
+      }
     },
     {
       "clientId": "hub-api",
-      "name": "Hub API",
-      "description": "Client pour les APIs backend du Hub",
+      "name": "Hub API Backend",
+      "description": "Client pour les APIs backend du Hub - Authentification service-to-service",
       "enabled": true,
       "publicClient": false,
       "secret": "hub-api-secret",
       "bearerOnly": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "hub-instance-agent",
+      "name": "Instance Agent",
+      "description": "Client pour les agents des instances GUCE qui communiquent avec le Hub (monitoring, sync, updates)",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "instance-agent-secret",
+      "serviceAccountsEnabled": true,
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
@@ -202,12 +172,24 @@
   ],
   "clientScopes": [
     {
-      "name": "tenant-scope",
-      "description": "Scope pour acceder aux fonctionnalites tenant",
+      "name": "hub-scope",
+      "description": "Scope pour acceder aux fonctionnalites du Hub",
       "protocol": "openid-connect",
       "attributes": {
         "include.in.token.scope": "true"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "hub-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.client.audience": "hub-api",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ]
 }

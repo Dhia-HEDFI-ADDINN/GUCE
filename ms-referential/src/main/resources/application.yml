@@ -1,10 +1,23 @@
+# =============================================================================
+# E-GUCE 3G - ms-referential Configuration
+# =============================================================================
+# Ce microservice gere les referentiels (pays, devises, codes SH, etc.)
+#
+# Deploiement:
+# - Sur le Hub: Referentiels templates partages
+# - Sur les Instances: Referentiels specifiques au pays
+# =============================================================================
+
 spring:
   application:
     name: ms-referential
 
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
+  # -----------------------------------------
+  # Base de donnees
+  # -----------------------------------------
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:guce_referential}
     username: ${DB_USER:guce}
@@ -30,6 +43,9 @@ spring:
     change-log: classpath:db/migration/db.changelog-master.xml
     default-schema: referential
 
+  # -----------------------------------------
+  # Kafka
+  # -----------------------------------------
   kafka:
     bootstrap-servers: ${KAFKA_SERVERS:localhost:9092}
     producer:
@@ -39,11 +55,22 @@ spring:
       group-id: ${spring.application.name}
       auto-offset-reset: earliest
 
+  # -----------------------------------------
+  # Redis Cache
+  # -----------------------------------------
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+
+  # -----------------------------------------
+  # Securite OAuth2/Keycloak
+  # -----------------------------------------
   security:
     oauth2:
       resourceserver:
@@ -51,16 +78,17 @@ spring:
           issuer-uri: ${KEYCLOAK_URL:http://localhost:8180}/realms/${KEYCLOAK_REALM:guce-cameroun}
           jwk-set-uri: ${KEYCLOAK_URL:http://localhost:8180}/realms/${KEYCLOAK_REALM:guce-cameroun}/protocol/openid-connect/certs
 
-  cache:
-    type: redis
-    redis:
-      time-to-live: 3600000
-
+# -----------------------------------------
+# Serveur
+# -----------------------------------------
 server:
   port: ${SERVER_PORT:8081}
   servlet:
     context-path: /
 
+# -----------------------------------------
+# Actuator / Monitoring
+# -----------------------------------------
 management:
   endpoints:
     web:
@@ -69,7 +97,14 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      instance: ${guce.instance.id:local}
 
+# -----------------------------------------
+# OpenAPI / Swagger
+# -----------------------------------------
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -77,14 +112,117 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
 
+# -----------------------------------------
+# Configuration GUCE
+# -----------------------------------------
 guce:
   openapi:
     server-url: ${SERVER_URL:http://localhost:8081}
+
+  # Configuration Keycloak
   keycloak:
     auth-server-url: ${KEYCLOAK_URL:http://localhost:8180}
     realm: ${KEYCLOAK_REALM:guce-cameroun}
+
+  # Configuration Instance (pour les deployements Instance)
+  instance:
+    id: ${GUCE_INSTANCE_ID:DEV-LOCAL}
+    code: ${GUCE_INSTANCE_CODE:DEV}
+    name: ${GUCE_INSTANCE_NAME:Local Development}
+    country: ${GUCE_INSTANCE_COUNTRY:CM}
+
+  # Configuration Hub (pour la communication avec le Hub)
+  hub:
+    enabled: ${GUCE_HUB_ENABLED:false}
+    url: ${GUCE_HUB_URL:https://e-guce-hub.com}
+    api-key: ${GUCE_HUB_API_KEY:}
+    # Monitoring - Envoi des metriques au Hub
+    monitoring:
+      enabled: ${GUCE_HUB_MONITORING_ENABLED:false}
+      metrics-push-interval: 60000  # 1 minute
+      health-check-interval: 30000  # 30 secondes
+      logs-push-enabled: false
+    # Synchronisation des templates depuis le Hub
+    sync:
+      enabled: ${GUCE_HUB_SYNC_ENABLED:false}
+      interval: 3600000  # 1 heure
+
+# -----------------------------------------
+# Logging
+# -----------------------------------------
+logging:
+  level:
+    cm.guce: ${LOG_LEVEL:DEBUG}
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+---
+# =============================================================================
+# Profil: dev (Developpement local)
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: dev
 
 logging:
   level:
     cm.guce: DEBUG
     org.springframework.security: DEBUG
+
+---
+# =============================================================================
+# Profil: hub (Deploiement sur le Hub)
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: hub
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_URL}/realms/e-guce-hub
+          jwk-set-uri: ${KEYCLOAK_URL}/realms/e-guce-hub/protocol/openid-connect/certs
+
+guce:
+  keycloak:
+    realm: e-guce-hub
+  hub:
+    enabled: false  # Pas besoin de communiquer avec soi-meme
+
+---
+# =============================================================================
+# Profil: instance (Deploiement sur une Instance)
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: instance
+
+guce:
+  hub:
+    enabled: true
+    monitoring:
+      enabled: true
+    sync:
+      enabled: true
+
+---
+# =============================================================================
+# Profil: prod (Production)
+# =============================================================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    cm.guce: INFO
+    org.springframework.security: WARN
