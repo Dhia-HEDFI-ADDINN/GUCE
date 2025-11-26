@@ -148,11 +148,21 @@ services:
     container_name: guce-kafka-ui
     depends_on:
       - kafka
+      - keycloak
     ports:
-      - "8090:8080"
+      - "8083:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: guce-local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      # Keycloak SSO OAuth2
+      AUTH_TYPE: OAUTH2
+      AUTH_OAUTH2_CLIENT_NAME: keycloak
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTID: kafka-ui
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_CLIENTSECRET: kafka-ui-sso-secret
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_SCOPE: openid,profile,email,roles
+      SPRING_SECURITY_OAUTH2_CLIENT_REGISTRATION_KEYCLOAK_REDIRECTURI: "{baseUrl}/login/oauth2/code/{registrationId}"
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUERURI: http://keycloak:8080/realms/e-guce-hub
+      SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_USERNAMEATTRIBUTE: preferred_username
     networks:
       - guce-network
 
@@ -290,11 +300,21 @@ services:
     environment:
       MINIO_ROOT_USER: guce
       MINIO_ROOT_PASSWORD: guceminio
+      # Keycloak SSO OIDC
+      MINIO_IDENTITY_OPENID_CONFIG_URL: http://keycloak:8080/realms/e-guce-hub/.well-known/openid-configuration
+      MINIO_IDENTITY_OPENID_CLIENT_ID: minio
+      MINIO_IDENTITY_OPENID_CLIENT_SECRET: minio-sso-secret
+      MINIO_IDENTITY_OPENID_CLAIM_NAME: roles
+      MINIO_IDENTITY_OPENID_SCOPES: openid,profile,email
+      MINIO_IDENTITY_OPENID_REDIRECT_URI: http://localhost:9001/oauth_callback
+      MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
       - minio_data:/data
+    depends_on:
+      - keycloak
     networks:
       - guce-network
     healthcheck:
@@ -367,8 +387,26 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Basic config
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
+      # Server config
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      # Keycloak SSO OAuth2
+      GF_AUTH_GENERIC_OAUTH_ENABLED: "true"
+      GF_AUTH_GENERIC_OAUTH_NAME: "Keycloak"
+      GF_AUTH_GENERIC_OAUTH_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_ID: "grafana"
+      GF_AUTH_GENERIC_OAUTH_CLIENT_SECRET: "grafana-sso-secret"
+      GF_AUTH_GENERIC_OAUTH_SCOPES: "openid profile email roles"
+      GF_AUTH_GENERIC_OAUTH_AUTH_URL: "http://localhost:8180/realms/e-guce-hub/protocol/openid-connect/auth"
+      GF_AUTH_GENERIC_OAUTH_TOKEN_URL: "http://keycloak:8080/realms/e-guce-hub/protocol/openid-connect/token"
+      GF_AUTH_GENERIC_OAUTH_API_URL: "http://keycloak:8080/realms/e-guce-hub/protocol/openid-connect/userinfo"
+      GF_AUTH_GENERIC_OAUTH_ROLE_ATTRIBUTE_PATH: "contains(roles[*], 'SUPER_ADMIN') && 'Admin' || contains(roles[*], 'hub-admin') && 'Admin' || contains(roles[*], 'monitoring-viewer') && 'Viewer' || 'Viewer'"
+      GF_AUTH_SIGNOUT_REDIRECT_URL: "http://localhost:8180/realms/e-guce-hub/protocol/openid-connect/logout?redirect_uri=http://localhost:3000"
+      # Disable anonymous access
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_AUTH_DISABLE_LOGIN_FORM: "false"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./infrastructure/grafana/dashboards:/etc/grafana/provisioning/dashboards
@@ -376,6 +414,7 @@ services:
     depends_on:
       - prometheus
       - loki
+      - keycloak
     networks:
       - guce-network
 

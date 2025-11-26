@@ -215,6 +215,85 @@
       "bearerOnly": true,
       "protocol": "openid-connect",
       "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "grafana",
+      "name": "Grafana SSO",
+      "description": "Client OAuth2 pour Grafana Monitoring",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "grafana-sso-secret",
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:3000/login/generic_oauth"
+      ],
+      "webOrigins": ["http://localhost:3000"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      }
+    },
+    {
+      "clientId": "minio",
+      "name": "MinIO SSO",
+      "description": "Client OAuth2 pour MinIO Console",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "minio-sso-secret",
+      "rootUrl": "http://localhost:9001",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:9001/*",
+        "http://localhost:9001/oauth_callback"
+      ],
+      "webOrigins": ["http://localhost:9001"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "kafka-ui",
+      "name": "Kafka UI SSO",
+      "description": "Client OAuth2 pour Kafka UI",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "kafka-ui-sso-secret",
+      "rootUrl": "http://localhost:8083",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:8083/*",
+        "http://localhost:8083/login/oauth2/code/keycloak"
+      ],
+      "webOrigins": ["http://localhost:8083"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
+    },
+    {
+      "clientId": "camunda",
+      "name": "Camunda SSO",
+      "description": "Client OAuth2 pour Camunda Operate/Tasklist",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "camunda-sso-secret",
+      "rootUrl": "http://localhost:8081",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:8081/*",
+        "http://localhost:8082/*"
+      ],
+      "webOrigins": ["http://localhost:8081", "http://localhost:8082"],
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "protocol": "openid-connect",
+      "defaultClientScopes": ["openid", "profile", "email", "roles"]
     }
   ],
   "users": [
