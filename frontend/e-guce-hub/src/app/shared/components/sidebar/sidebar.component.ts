@@ -930,9 +930,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
     if (!roles || roles.length === 0) return true;
     try {
       const userRoles = this.keycloak.getUserRoles();
+      // If no roles returned, show all menus (dev mode)
+      if (!userRoles || userRoles.length === 0) return true;
       return roles.some(role => userRoles.includes(role));
     } catch {
-      return false;
+      // In case of Keycloak error, show all menus (dev mode)
+      return true;
     }
   }
 
