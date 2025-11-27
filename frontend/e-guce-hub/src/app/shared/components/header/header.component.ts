@@ -7,6 +7,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatRippleModule } from '@angular/material/core';
+import { MatDividerModule } from '@angular/material/divider';
 import { KeycloakService } from 'keycloak-angular';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -24,7 +25,8 @@ import { Notification, NotificationLevel } from '@core/models/notification.model
     MatMenuModule,
     MatBadgeModule,
     MatTooltipModule,
-    MatRippleModule
+    MatRippleModule,
+    MatDividerModule
   ],
   template: `
     <header class="header" [class.scrolled]="scrolled">

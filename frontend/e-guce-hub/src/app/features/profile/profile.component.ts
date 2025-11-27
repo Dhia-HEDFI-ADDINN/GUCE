@@ -10,6 +10,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { KeycloakService } from 'keycloak-angular';
 
 @Component({
@@ -27,7 +28,8 @@ import { KeycloakService } from 'keycloak-angular';
     MatTabsModule,
     MatDividerModule,
     MatChipsModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MatSelectModule
   ],
   template: `
     <div class="profile-container">

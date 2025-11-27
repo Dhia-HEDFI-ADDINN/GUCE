@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatRippleModule } from '@angular/material/core';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { KeycloakService } from 'keycloak-angular';
 import { Subject } from 'rxjs';
 import { filter, takeUntil } from 'rxjs/operators';
@@ -24,7 +25,7 @@ interface MenuItem {
 @Component({
   selector: 'hub-sidebar',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, MatIconModule, MatTooltipModule, MatRippleModule, MatMenuModule],
+  imports: [CommonModule, RouterModule, FormsModule, MatIconModule, MatTooltipModule, MatRippleModule, MatMenuModule, MatDividerModule],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed" [class.mobile-open]="mobileOpen">
       <!-- Overlay for mobile -->
@@ -158,6 +159,21 @@ interface MenuItem {
           <button class="user-menu-btn" [matMenuTriggerFor]="userMenu">
             <mat-icon>more_vert</mat-icon>
           </button>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item routerLink="/profile">
+              <mat-icon>person</mat-icon>
+              <span>Mon Profil</span>
+            </button>
+            <button mat-menu-item routerLink="/settings">
+              <mat-icon>settings</mat-icon>
+              <span>Parametres</span>
+            </button>
+            <mat-divider></mat-divider>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Deconnexion</span>
+            </button>
+          </mat-menu>
         </div>
       </div>
 
@@ -985,6 +1001,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
         return null;
       })
       .filter(item => item !== null) as MenuItem[];
+  }
+
+  logout(): void {
+    this.keycloak.logout(window.location.origin);
   }
 
   closeMobile(): void {

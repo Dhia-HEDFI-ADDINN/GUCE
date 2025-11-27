@@ -32,7 +32,7 @@ import { Tenant } from '@core/models/tenant.model';
         </button>
       </div>
 
-      <div class="config-content" *ngIf="!loading && configForm">
+      <div class="config-content" *ngIf="!loading && configForm" [formGroup]="configForm">
         <mat-tab-group animationDuration="0ms">
           <!-- General Tab -->
           <mat-tab label="General">
@@ -42,23 +42,23 @@ import { Tenant } from '@core/models/tenant.model';
                 <div class="form-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Code Instance</mat-label>
-                    <input matInput [formControl]="configForm.get('code')!" readonly>
+                    <input matInput formControlName="code" readonly>
                     <mat-hint>Non modifiable</mat-hint>
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
                     <mat-label>Nom de l'Instance</mat-label>
-                    <input matInput [formControl]="configForm.get('name')!">
+                    <input matInput formControlName="name">
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
                     <mat-label>Nom Court</mat-label>
-                    <input matInput [formControl]="configForm.get('shortName')!">
+                    <input matInput formControlName="shortName">
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
                     <mat-label>Domaine</mat-label>
-                    <input matInput [formControl]="configForm.get('domain')!">
+                    <input matInput formControlName="domain">
                     <mat-icon matSuffix>language</mat-icon>
                   </mat-form-field>
                 </div>
@@ -69,12 +69,12 @@ import { Tenant } from '@core/models/tenant.model';
                 <div class="form-grid">
                   <mat-form-field appearance="outline">
                     <mat-label>Pays</mat-label>
-                    <input matInput [formControl]="configForm.get('country')!">
+                    <input matInput formControlName="country">
                   </mat-form-field>
 
                   <mat-form-field appearance="outline">
                     <mat-label>Devise</mat-label>
-                    <mat-select [formControl]="configForm.get('currency')!">
+                    <mat-select formControlName="currency">
                       <mat-option value="XAF">XAF - Franc CFA CEMAC</mat-option>
                       <mat-option value="XOF">XOF - Franc CFA UEMOA</mat-option>
                       <mat-option value="EUR">EUR - Euro</mat-option>
@@ -84,7 +84,7 @@ import { Tenant } from '@core/models/tenant.model';
 
                   <mat-form-field appearance="outline">
                     <mat-label>Fuseau Horaire</mat-label>
-                    <mat-select [formControl]="configForm.get('timezone')!">
+                    <mat-select formControlName="timezone">
                       <mat-option value="Africa/Douala">Africa/Douala (UTC+1)</mat-option>
                       <mat-option value="Africa/Ndjamena">Africa/Ndjamena (UTC+1)</mat-option>
                       <mat-option value="Africa/Bangui">Africa/Bangui (UTC+1)</mat-option>
@@ -97,7 +97,7 @@ import { Tenant } from '@core/models/tenant.model';
 
                   <mat-form-field appearance="outline">
                     <mat-label>Locale</mat-label>
-                    <mat-select [formControl]="configForm.get('locale')!">
+                    <mat-select formControlName="locale">
                       <mat-option value="fr-CM">Francais (Cameroun)</mat-option>
                       <mat-option value="fr-TD">Francais (Tchad)</mat-option>
                       <mat-option value="fr-CF">Francais (RCA)</mat-option>
@@ -121,7 +121,7 @@ import { Tenant } from '@core/models/tenant.model';
                   <div class="color-field">
                     <mat-form-field appearance="outline">
                       <mat-label>Couleur Principale</mat-label>
-                      <input matInput [formControl]="configForm.get('primaryColor')!">
+                      <input matInput formControlName="primaryColor">
                     </mat-form-field>
                     <div class="color-preview" [style.background]="configForm.get('primaryColor')?.value"></div>
                   </div>
@@ -129,7 +129,7 @@ import { Tenant } from '@core/models/tenant.model';
                   <div class="color-field">
                     <mat-form-field appearance="outline">
                       <mat-label>Couleur Secondaire</mat-label>
-                      <input matInput [formControl]="configForm.get('secondaryColor')!">
+                      <input matInput formControlName="secondaryColor">
                     </mat-form-field>
                     <div class="color-preview" [style.background]="configForm.get('secondaryColor')?.value"></div>
                   </div>
@@ -137,7 +137,7 @@ import { Tenant } from '@core/models/tenant.model';
                   <div class="color-field">
                     <mat-form-field appearance="outline">
                       <mat-label>Couleur d'Accent</mat-label>
-                      <input matInput [formControl]="configForm.get('accentColor')!">
+                      <input matInput formControlName="accentColor">
                     </mat-form-field>
                     <div class="color-preview" [style.background]="configForm.get('accentColor')?.value"></div>
                   </div>
