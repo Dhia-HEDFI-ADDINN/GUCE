@@ -1,0 +1,198 @@
+server:
+  port: 8096
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: ms-procedure-builder
+
+  # Database Configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/guce_procedure_builder
+    username: guce_admin
+    password: guce_secret
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
+
+  # JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        default_schema: public
+    open-in-view: false
+
+  # Liquibase
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+
+  # Kafka Configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: ms-procedure-builder
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+
+  # Security
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/e-guce-hub
+          jwk-set-uri: http://localhost:8180/realms/e-guce-hub/protocol/openid-connect/certs
+
+  # Freemarker for templates
+  freemarker:
+    template-loader-path: classpath:/templates/
+    suffix: .ftl
+
+# Zeebe Configuration
+zeebe:
+  client:
+    broker:
+      gateway-address: localhost:26500
+    security:
+      plaintext: true
+
+# Deployment Configuration
+deployment:
+  work-dir: /tmp/guce-deployments
+
+# Git Configuration
+git:
+  repository:
+    url: ${GIT_REPOSITORY_URL:}
+    branch: main
+  credentials:
+    username: ${GIT_USERNAME:}
+    password: ${GIT_PASSWORD:}
+
+# Maven Configuration
+maven:
+  executable: mvn
+  settings: ${MAVEN_SETTINGS:}
+  build:
+    timeout: 600
+
+# Docker Configuration
+docker:
+  registry:
+    url: ${DOCKER_REGISTRY_URL:harbor.e-guce.cm}
+    project: guce-workflows
+    username: ${DOCKER_USERNAME:}
+    password: ${DOCKER_PASSWORD:}
+  build:
+    timeout: 900
+
+# Kubernetes Configuration
+kubernetes:
+  use-helm: true
+
+# Helm Configuration
+helm:
+  chart:
+    repository: oci://harbor.e-guce.cm/charts
+    name: guce-workflow
+  timeout: 600
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+# Logging
+logging:
+  level:
+    cm.guce: DEBUG
+    io.camunda.zeebe: INFO
+    org.eclipse.jgit: INFO
+    io.fabric8.kubernetes: INFO
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/guce_procedure_builder
+
+  kafka:
+    bootstrap-servers: kafka:9092
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://keycloak:8080/realms/e-guce-hub
+          jwk-set-uri: http://keycloak:8080/realms/e-guce-hub/protocol/openid-connect/certs
+
+zeebe:
+  client:
+    broker:
+      gateway-address: zeebe:26500
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USER}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 50
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI}
+
+zeebe:
+  client:
+    broker:
+      gateway-address: ${ZEEBE_GATEWAY_ADDRESS}
+    security:
+      plaintext: false
+
+logging:
+  level:
+    cm.guce: INFO
