@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:di="http://www.omg.org/spec/DMN/20180521/DI/"
+             xmlns:camunda="http://camunda.org/schema/1.0/dmn"
+             id="Definitions_ImportDeclarationRouting"
+             name="Import Declaration Routing"
+             namespace="http://camunda.org/schema/1.0/dmn">
+
+  <!--
+    Table de Décision DMN pour le Routage des Déclarations d'Importation (DI)
+
+    Conforme aux règles métier GUCE Cameroun:
+    - RM01: DI vers SGS si Valeur FOB > 1 000 000 FCFA ET marchandise standard
+    - RM02: DI vers DOUANE si Valeur FOB <= 1 000 000 FCFA OU véhicules occasion/poussins/œufs
+    - RM03: Marchandises non soumises au PVI -> SGS sans taxe inspection
+    - RM04: Taxe SGS = MAX(0.95% × Valeur FOB, 110 000 FCFA) + 1 500 FCFA
+    - RM05: Taxe Douane = 6 000 FCFA + 1 500 FCFA = 7 500 FCFA
+    - RM06: Canal paiement: < 2M FCFA -> Campost/CNCC | >= 2M FCFA -> Banque
+  -->
+
+  <decision id="DecisionImportRouting" name="DI Routing Decision">
+    <informationRequirement id="InformationRequirement_FobValue">
+      <requiredInput href="#InputDataFobValueXaf"/>
+    </informationRequirement>
+    <informationRequirement id="InformationRequirement_SpecialMerchandise">
+      <requiredInput href="#InputDataHasSpecialMerchandise"/>
+    </informationRequirement>
+    <informationRequirement id="InformationRequirement_PviExempt">
+      <requiredInput href="#InputDataIsPviExempt"/>
+    </informationRequirement>
+
+    <decisionTable id="DecisionTable_ImportRouting" hitPolicy="FIRST">
+      <input id="Input_FobValueXaf" label="Valeur FOB (XAF)" camunda:inputVariable="totalFobValueXaf">
+        <inputExpression id="InputExpression_FobValue" typeRef="number">
+          <text>totalFobValueXaf</text>
+        </inputExpression>
+      </input>
+      <input id="Input_HasSpecialMerchandise" label="Marchandise Spéciale" camunda:inputVariable="hasSpecialMerchandise">
+        <inputExpression id="InputExpression_SpecialMerchandise" typeRef="boolean">
+          <text>hasSpecialMerchandise</text>
+        </inputExpression>
+      </input>
+      <input id="Input_IsPviExempt" label="Exempt PVI" camunda:inputVariable="isPviExempt">
+        <inputExpression id="InputExpression_PviExempt" typeRef="boolean">
+          <text>isPviExempt</text>
+        </inputExpression>
+      </input>
+
+      <output id="Output_RoutingDestination" label="Destination" name="routingDestination" typeRef="string"/>
+      <output id="Output_RoutingReason" label="Motif" name="routingReason" typeRef="string"/>
+
+      <!-- Règle 1: Marchandises spéciales -> DOUANE -->
+      <rule id="Rule_SpecialMerchandise">
+        <description>RM02: Véhicules d'occasion, poussins, œufs -> Douane</description>
+        <inputEntry id="InputEntry_Rule1_Fob">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule1_Special">
+          <text>true</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule1_Pvi">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Rule1_Dest">
+          <text>"CUSTOMS"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Rule1_Reason">
+          <text>"Marchandises speciales (vehicules occasion, poussins, oeufs)"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 2: Valeur FOB > 1M FCFA -> SGS -->
+      <rule id="Rule_HighValue_SGS">
+        <description>RM01: Valeur FOB > 1 000 000 FCFA -> SGS</description>
+        <inputEntry id="InputEntry_Rule2_Fob">
+          <text>&gt; 1000000</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule2_Special">
+          <text>false</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule2_Pvi">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Rule2_Dest">
+          <text>"SGS"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Rule2_Reason">
+          <text>"Valeur FOB superieure a 1 000 000 FCFA"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 3: Valeur FOB <= 1M FCFA -> DOUANE -->
+      <rule id="Rule_LowValue_Customs">
+        <description>RM02: Valeur FOB <= 1 000 000 FCFA -> Douane</description>
+        <inputEntry id="InputEntry_Rule3_Fob">
+          <text>&lt;= 1000000</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule3_Special">
+          <text>false</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Rule3_Pvi">
+          <text></text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Rule3_Dest">
+          <text>"CUSTOMS"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Rule3_Reason">
+          <text>"Valeur FOB inferieure ou egale a 1 000 000 FCFA"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <decision id="DecisionInspectionFee" name="DI Inspection Fee Calculation">
+    <informationRequirement id="InformationRequirement_Routing">
+      <requiredDecision href="#DecisionImportRouting"/>
+    </informationRequirement>
+    <informationRequirement id="InformationRequirement_FobValue2">
+      <requiredInput href="#InputDataFobValueXaf"/>
+    </informationRequirement>
+    <informationRequirement id="InformationRequirement_PviExempt2">
+      <requiredInput href="#InputDataIsPviExempt"/>
+    </informationRequirement>
+
+    <decisionTable id="DecisionTable_InspectionFee" hitPolicy="FIRST">
+      <input id="Input_RoutingDest" label="Destination" camunda:inputVariable="routingDestination">
+        <inputExpression id="InputExpression_RoutingDest" typeRef="string">
+          <text>routingDestination</text>
+        </inputExpression>
+      </input>
+      <input id="Input_FobValue2" label="Valeur FOB (XAF)" camunda:inputVariable="totalFobValueXaf">
+        <inputExpression id="InputExpression_FobValue2" typeRef="number">
+          <text>totalFobValueXaf</text>
+        </inputExpression>
+      </input>
+      <input id="Input_IsPviExempt2" label="Exempt PVI" camunda:inputVariable="isPviExempt">
+        <inputExpression id="InputExpression_PviExempt2" typeRef="boolean">
+          <text>isPviExempt</text>
+        </inputExpression>
+      </input>
+
+      <output id="Output_InspectionFee" label="Taxe Inspection (XAF)" name="inspectionFee" typeRef="number"/>
+      <output id="Output_FiscalStamp" label="Timbre Fiscal (XAF)" name="fiscalStamp" typeRef="number"/>
+      <output id="Output_TotalFees" label="Total Frais (XAF)" name="totalFees" typeRef="number"/>
+      <output id="Output_FeeFormula" label="Formule" name="feeFormula" typeRef="string"/>
+
+      <!-- Règle 1: Exempt PVI -> Pas de taxe inspection -->
+      <rule id="Rule_PviExempt">
+        <description>RM03: Marchandises non soumises au PVI</description>
+        <inputEntry id="InputEntry_Fee1_Dest">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee1_Fob">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee1_Pvi">
+          <text>true</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Fee1_Inspection">
+          <text>0</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee1_Stamp">
+          <text>1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee1_Total">
+          <text>1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee1_Formula">
+          <text>"Exempt PVI: 0 + 1500 FCFA timbre"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 2: SGS avec valeur calculée >= minimum -->
+      <rule id="Rule_SGS_HighValue">
+        <description>RM04: SGS - Taxe calculée >= 110 000 FCFA</description>
+        <inputEntry id="InputEntry_Fee2_Dest">
+          <text>"SGS"</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee2_Fob">
+          <text>&gt;= 11578948</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee2_Pvi">
+          <text>false</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Fee2_Inspection">
+          <text>totalFobValueXaf * 0.0095</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee2_Stamp">
+          <text>1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee2_Total">
+          <text>(totalFobValueXaf * 0.0095) + 1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee2_Formula">
+          <text>"SGS: 0.95% x FOB + 1500 FCFA"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 3: SGS avec minimum applicable -->
+      <rule id="Rule_SGS_MinimumApplied">
+        <description>RM04: SGS - Minimum 110 000 FCFA applique</description>
+        <inputEntry id="InputEntry_Fee3_Dest">
+          <text>"SGS"</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee3_Fob">
+          <text>&lt; 11578948</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee3_Pvi">
+          <text>false</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Fee3_Inspection">
+          <text>110000</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee3_Stamp">
+          <text>1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee3_Total">
+          <text>111500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee3_Formula">
+          <text>"SGS: Minimum 110 000 FCFA + 1500 FCFA"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 4: DOUANE -> Taxe fixe -->
+      <rule id="Rule_Customs_Fee">
+        <description>RM05: Douane - Taxe fixe 6 000 FCFA</description>
+        <inputEntry id="InputEntry_Fee4_Dest">
+          <text>"CUSTOMS"</text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee4_Fob">
+          <text></text>
+        </inputEntry>
+        <inputEntry id="InputEntry_Fee4_Pvi">
+          <text>false</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Fee4_Inspection">
+          <text>6000</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee4_Stamp">
+          <text>1500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee4_Total">
+          <text>7500</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Fee4_Formula">
+          <text>"Douane: 6 000 FCFA + 1500 FCFA timbre"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <decision id="DecisionPaymentChannel" name="DI Payment Channel">
+    <informationRequirement id="InformationRequirement_FobValue3">
+      <requiredInput href="#InputDataFobValueXaf"/>
+    </informationRequirement>
+
+    <decisionTable id="DecisionTable_PaymentChannel" hitPolicy="FIRST">
+      <input id="Input_FobValue3" label="Valeur FOB (XAF)" camunda:inputVariable="totalFobValueXaf">
+        <inputExpression id="InputExpression_FobValue3" typeRef="number">
+          <text>totalFobValueXaf</text>
+        </inputExpression>
+      </input>
+
+      <output id="Output_PaymentChannel" label="Canal de Paiement" name="paymentChannel" typeRef="string"/>
+      <output id="Output_PaymentLabel" label="Description" name="paymentChannelLabel" typeRef="string"/>
+
+      <!-- Règle 1: Valeur >= 2M FCFA -> Banque -->
+      <rule id="Rule_BankPayment">
+        <description>RM06: Valeur >= 2 000 000 FCFA -> Banque (PayOnline)</description>
+        <inputEntry id="InputEntry_Pay1_Fob">
+          <text>&gt;= 2000000</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Pay1_Channel">
+          <text>"BANK_PAYONLINE"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Pay1_Label">
+          <text>"Banque (PayOnline)"</text>
+        </outputEntry>
+      </rule>
+
+      <!-- Règle 2: Valeur < 2M FCFA -> Campost/CNCC -->
+      <rule id="Rule_CampostPayment">
+        <description>RM06: Valeur &lt; 2 000 000 FCFA -> Campost/CNCC</description>
+        <inputEntry id="InputEntry_Pay2_Fob">
+          <text>&lt; 2000000</text>
+        </inputEntry>
+        <outputEntry id="OutputEntry_Pay2_Channel">
+          <text>"CAMPOST"</text>
+        </outputEntry>
+        <outputEntry id="OutputEntry_Pay2_Label">
+          <text>"Campost / CNCC / Caisse GUCE"</text>
+        </outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+
+  <!-- Input Data Definitions -->
+  <inputData id="InputDataFobValueXaf" name="Total FOB Value (XAF)"/>
+  <inputData id="InputDataHasSpecialMerchandise" name="Has Special Merchandise"/>
+  <inputData id="InputDataIsPviExempt" name="Is PVI Exempt"/>
+
+  <!-- DMN Diagram -->
+  <dmndi:DMNDI>
+    <dmndi:DMNDiagram id="DMNDiagram_ImportRouting">
+      <dmndi:DMNShape id="DMNShape_DecisionRouting" dmnElementRef="DecisionImportRouting">
+        <dc:Bounds height="80" width="180" x="200" y="100"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_DecisionFees" dmnElementRef="DecisionInspectionFee">
+        <dc:Bounds height="80" width="180" x="200" y="220"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_DecisionPayment" dmnElementRef="DecisionPaymentChannel">
+        <dc:Bounds height="80" width="180" x="450" y="100"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_InputFob" dmnElementRef="InputDataFobValueXaf">
+        <dc:Bounds height="45" width="125" x="50" y="250"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_InputSpecial" dmnElementRef="InputDataHasSpecialMerchandise">
+        <dc:Bounds height="45" width="125" x="50" y="320"/>
+      </dmndi:DMNShape>
+      <dmndi:DMNShape id="DMNShape_InputPvi" dmnElementRef="InputDataIsPviExempt">
+        <dc:Bounds height="45" width="125" x="50" y="390"/>
+      </dmndi:DMNShape>
+    </dmndi:DMNDiagram>
+  </dmndi:DMNDI>
+</definitions>
