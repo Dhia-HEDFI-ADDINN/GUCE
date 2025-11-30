@@ -101,6 +101,69 @@ export const routes: Routes = [
       {
         path: 'profile',
         loadComponent: () => import('./features/e-force/profile/user-profile.component').then(m => m.UserProfileComponent)
+      },
+      // ============================================
+      // FIMEX - Fichier des Importateurs et Exportateurs
+      // ============================================
+      {
+        path: 'fimex',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./features/e-force/fimex/fimex-dashboard.component').then(m => m.FimexDashboardComponent)
+          },
+          {
+            path: 'liste',
+            loadComponent: () => import('./features/e-force/fimex/fimex-list.component').then(m => m.FimexListComponent)
+          },
+          {
+            path: 'nouvelle-inscription',
+            loadComponent: () => import('./features/e-force/fimex/fimex-inscription-form.component').then(m => m.FimexInscriptionFormComponent)
+          },
+          {
+            path: 'inscription/:numeroFIMEX',
+            loadComponent: () => import('./features/e-force/fimex/fimex-detail.component').then(m => m.FimexDetailComponent)
+          },
+          {
+            path: 'renouvellement/:numeroFIMEX',
+            loadComponent: () => import('./features/e-force/fimex/fimex-inscription-form.component').then(m => m.FimexInscriptionFormComponent),
+            data: { mode: 'renewal' }
+          },
+          {
+            path: 'amendement/:numeroFIMEX',
+            loadComponent: () => import('./features/e-force/fimex/fimex-inscription-form.component').then(m => m.FimexInscriptionFormComponent),
+            data: { mode: 'amendment' }
+          }
+        ]
+      },
+      // ============================================
+      // Import Declaration (Déclaration d'Importation)
+      // ============================================
+      {
+        path: 'import',
+        children: [
+          {
+            path: '',
+            loadComponent: () => import('./features/e-force/import-declaration/import-dashboard.component').then(m => m.ImportDashboardComponent)
+          },
+          {
+            path: 'liste',
+            loadComponent: () => import('./features/e-force/import-declaration/import-list.component').then(m => m.ImportListComponent)
+          },
+          {
+            path: 'nouveau',
+            loadComponent: () => import('./features/e-force/import-declaration/import-declaration-form.component').then(m => m.ImportDeclarationFormComponent)
+          },
+          {
+            path: 'dossier/:numeroDossier',
+            loadComponent: () => import('./features/e-force/import-declaration/import-detail.component').then(m => m.ImportDetailComponent)
+          },
+          {
+            path: 'dossier/:numeroDossier/edit',
+            loadComponent: () => import('./features/e-force/import-declaration/import-declaration-form.component').then(m => m.ImportDeclarationFormComponent),
+            data: { mode: 'edit' }
+          }
+        ]
       }
     ]
   },
